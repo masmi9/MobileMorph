@@ -3,3 +3,4 @@ output/
 static/__pycache__
 utils/__pycache__
 report/__pycache__
+dynamic/__pycache__
