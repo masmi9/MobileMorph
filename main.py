@@ -1,18 +1,17 @@
 import argparse
 import sys
 import os
-
 # Add static analysis paths
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'static'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'dynamic'))
-
 # Import your analysis modules
 import static.apk_static_analysis
 import static.ipa_static_analysis
 import static.secrets_scanner
 from utils.paths import get_output_folder
 from report import report_generator
-from dynamic.dynamic_runner import start_dynamic_analysis
+from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
+import argparse
 
 def run_static_analysis(args):
     downloads_folder = get_output_folder()
@@ -43,14 +42,15 @@ def run_static_analysis(args):
 
 def run_dynamic_analysis(args):
     if args.apk:
-        start_dynamic_analysis(args.apk) # Call dynamic analysis for APK
+        engine = DynamicAnalysisEngine(args.apk)
+        engine.start()
     elif args.ipa:
         print("[*] Dynamic analysis for IPA is not yet supported. Please provide an APK.")
     else:
         print("[!] Please specify either --apk or --ipa for dynamic analysis.")
 
 def main():
-    parser = argparse.ArgumentParser(description="📱 MobileMorph - Mobile Pentesting Framework")
+    parser = argparse.ArgumentParser(description="MobileMorph - Mobile Pentesting Framework")
 
     parser.add_argument('--static', action='store_true', help='Run static analysis')
     parser.add_argument('--dynamic', action='store_true', help='Run dynamic analysis (coming soon)')

@@ -1,31 +1,35 @@
-import mitmproxy
-from mitmproxy import http
-import logging
+import frida
+import sys
+import threading
 from utils import logger
-
-class TrafficInterceptor:
-    def __init__(self):
-        self.logger = logger
+class FridaTrafficInterceptor:
+    def __init__(self, package_name):
+        self.package_name = package_name
+        self.session = None
+        self.script = None
     
-    # Intercepts HTTP requests and logs the URL and HTTP method.
-    def request(self, flow: http.HTTPFlow) -> None:
-        """Intercepts incoming HTTP requests."""
-        self.logger.info(f"Intercepting request: {flow.request.method} {flow.request.url}")
-        # You can add more logic here (e.g., modify requests or log headers, bodies, etc.)
+    def on_message(self, message, data):
+        if message['type'] == 'send':
+            logger.info(f"[Frida Hook] {message['payload']}")
+        elif message['type'] == 'error':
+            logger.error(f"[Frida Error] {message}")
 
-    # Intercepts HTTP responses and logs the status code and URL.
-    def response(self, flow: http.HTTPFlow) -> None:
-        """Intercepts HTTP responses."""
-        self.logger.info(f"Intercepting repsonse: {flow.request.method} {flow.request.url} - Status: {flow.response.status_code}")
-        # Add more logic to handle responses (e.g., logging response body status code, etc.)
+    def start_hook(self):
+        try:
+            logger.info(f"Attaching to {self.package_name}...")
+            self.session = frida.get_usb_device().attach(self.package_name)
 
-    # Starts the proxy server using mitmproxy, listening on port 8080 by default. You can change this port based on your testing requirements.
-    def start_proxy(sefl, port=8080):
-        """Starts the proxy server."""
-        self.logger.info(f"Starting proxy server on port {port}...")
-        from mitmproxy import proxy, options
-        opts = options.Options(listen_host='0.0.0.0', listen_port=port)
-        mproxy = proxy.ProxyServer(opts)
-        mcontroller = mitmproxy.controller.DummyController()
-        mcontroller.addons.add(self)
-        mproxy.start()
+            with open("dynamic/frida_hooks/network_logger.js") as f:
+                script_code = f.read()
+
+            self.script = self.session.create_script(script_code)
+            self.script.on("message", self.on_message)
+            self.script.load()
+
+            logger.info("Frida hook injected successfully. Monitoring traffic...")
+            # Keep the process alive for Frida messages
+            threading.Event().wait()
+
+        except Exception as e:
+            logger.error(f"Failed to hook into {self.package_name}: {str(e)}")
+            sys.exit(1)

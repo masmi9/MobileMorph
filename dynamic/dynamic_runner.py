@@ -1,7 +1,7 @@
 import time
 import threading
 import subprocess
-from dynamic.traffic_interceptor import TrafficInterceptor
+from dynamic.traffic_interceptor import FridaTrafficInterceptor
 from utils import logger
 
 def check_device_connection():
@@ -18,7 +18,6 @@ def get_package_name_from_apk(apk_path):
         output = subprocess.check_output(["aapt", "dump", "badging", apk_path], shell=True, text=True)
         for line in output.splitlines():
             if line.startswith("package:"):
-                # Example:
                 parts = line.split()
                 for part in parts:
                     if part.startswith("name="):
@@ -40,35 +39,27 @@ def start_dynamic_analysis(app_path):
     if not check_device_connection():
         return
 
-    # Start the traffic interceptor
-    interceptor = TrafficInterceptor()
-    proxy_port = 8080
-    interceptor.start_proxy(port=proxy_port)
-
-    # You can automate the process to launch the app, e.g., for Android:
     if app_path.endswith(".apk"):
-        subprocess.run(["adb", "install", app_path])  # Install APK to device
+        subprocess.run(["adb", "install", app_path])
         package_name = get_package_name_from_apk(app_path)
         if not package_name:
-                logger.error("Failed to extract package name - aborting dynamic analysis.")
-                return
+            logger.error("Failed to extract package name - aborting dynamic analysis.")
+            return
         subprocess.run(["adb", "shell", "monkey", "-p", package_name, "-c", "android.intent.category.LAUNCHER", "1"])
-    elif app_path.endswith(".ipa"):
-        # iOS app handling (you may use a tool like Appium or manual steps here)
-        logger.warning("iOS dynamic suport not implemented yet.")
-        return
     else:
-        logger.error("Unsupported app format. Only APK and IPA are supported.")
+        logger.error("Unsupported app format. Only APK supported.")
         return
-    
+
     logger.info(f"Package name: {package_name}")
+
+    interceptor = FridaTrafficInterceptor(package_name)
+    interceptor.start_hook()
 
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",
         "dynamic/frida_hooks/hook_crypt.js"
     ]
 
-    # Run Frida hooks
     threads = []
     for script in frida_scripts:
         t = threading.Thread(target=run_frida_script, args=(script, package_name))
@@ -76,13 +67,18 @@ def start_dynamic_analysis(app_path):
         threads.append(t)
 
     logger.info("[*] Frida hooks running. You can interact with the app now.")
-    time.sleep(30)  # Let the analysis run for 30 seconds (adjust as needed)
+    time.sleep(30)
 
     for t in threads:
         t.join()
 
-    logger.info("Dynamic analysis started successfully!")
+    logger.info("Dynamic analysis finished successfully!")
 
-if __name__ == "__main__":
-    import sys
-    start_dynamic_analysis(sys.argv[1])
+# NEW: The class wrapper for dynamic analysis
+
+class DynamicAnalysisEngine:
+    def __init__(self, app_path):
+        self.app_path = app_path
+
+    def start(self):
+        start_dynamic_analysis(self.app_path)
