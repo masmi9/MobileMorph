@@ -1,0 +1,5 @@
+# Ignore output directories
+output/
+static/__pycache__
+utils/__pycache__
+report/__pycache__
