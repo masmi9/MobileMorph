@@ -1,0 +1,9 @@
+﻿{
+  "agentId": 3,
+  "agentName": "ISI-LT-L014",
+  "poolId": 1,
+  "poolName": "Default",
+  "serverUrl": "https://pipelinesghubeus2.actions.githubusercontent.com/ZezOaqYtHdwR1Fsp5jjyPAf3XSUozBkImJ1JDNxjdP1qDej8sh/",
+  "gitHubUrl": "https://github.com/masmi9/MobileMorph",
+  "workFolder": "_work"
+}
