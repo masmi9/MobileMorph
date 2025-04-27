@@ -17,7 +17,7 @@ def run_static_analysis(args):
     downloads_folder = get_output_folder()
     findings = {}
     if args.apk:
-        base_name = static.apk_static_analysis.apk_static_analysis(args.apk)
+        base_name = static.apk_static_analysis.run_static_analysis(args.apk)
         strings_file = os.path.join(downloads_folder, f"{os.path.basename(args.apk).replace('.apk', '')}_strings.txt")
         secrets_result = static.secrets_scanner.scan_for_secrets(strings_file)
 
@@ -53,7 +53,7 @@ def main():
     parser = argparse.ArgumentParser(description="MobileMorph - Mobile Pentesting Framework")
 
     parser.add_argument('--static', action='store_true', help='Run static analysis')
-    parser.add_argument('--dynamic', action='store_true', help='Run dynamic analysis (coming soon)')
+    parser.add_argument('--dynamic', action='store_true', help='Run dynamic analysis')
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
     parser.add_argument('--report', action='store_true', help='Generate report (coming soon)')

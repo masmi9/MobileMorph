@@ -26,6 +26,25 @@ def get_package_name_from_apk(apk_path):
         logger.error(f"[X] Failed to extract package name: {e}")
     return None
 
+def uninstall_app(package_name):
+    """Uninstalls the app if it's already installed."""
+    logger.info(f"[*] Uninstalling existing app {package_name} (if present)...")
+    subprocess.run(["adb", "uninstall", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def wait_for_process(package_name, timeout=10):
+    """Waits for the app process to start."""
+    logger.info(f"[*] Waiting for process {package_name} to start...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        result = subprocess.run(["adb", "shell", "pidof", package_name], capture_output=True, text=True)
+        if result.stdout.strip():
+            logger.info(f"[+] Process {package_name} is running.")
+            return True
+        time.sleep(1)
+    logger.error(f"[X] Timeout: {package_name} process not found.")
+    return False
+
 def run_frida_script(script_path, package_name):
     print(f"[*] Running Frida script: {script_path}")
     subprocess.run([
@@ -40,12 +59,22 @@ def start_dynamic_analysis(app_path):
         return
 
     if app_path.endswith(".apk"):
-        subprocess.run(["adb", "install", app_path])
         package_name = get_package_name_from_apk(app_path)
         if not package_name:
             logger.error("Failed to extract package name - aborting dynamic analysis.")
             return
+        
+        uninstall_app(package_name)
+
+        logger.info(f"[*] Installing {app_path}...")
+        subprocess.run(["adb", "install", app_path])
+
+        logger.info(f"[*] Launching app {package_name}")
         subprocess.run(["adb", "shell", "monkey", "-p", package_name, "-c", "android.intent.category.LAUNCHER", "1"])
+        
+        if not wait_for_process(package_name):
+            return
+
     else:
         logger.error("Unsupported app format. Only APK supported.")
         return
@@ -57,7 +86,8 @@ def start_dynamic_analysis(app_path):
 
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",
-        "dynamic/frida_hooks/hook_crypt.js"
+        "dynamic/frida_hooks/hook_crypt.js",
+        "dynamic/frida_hooks/network_logger.js"
     ]
 
     threads = []
