@@ -14,23 +14,23 @@ def is_semgrep_docker_running():
         result = subprocess.run(["docker", "ps", "--filter", "ancestor=returntocorp/semgrep", "--format", "{{.Names}}"], capture_output=True, text=True)
         # If any container is running with the 'returntocorp/semgrep' image, it will return its name.
         if result.stdout.strip():
-            print("[+] Semgrep Docker container is already running.")
+            logger.info("Semgrep Docker container is already running.")
             return True
         else:
-            print("[+] Semgrep Docker container is not running.")
+            logger.info("Semgrep Docker container is not running.")
             return False
     except subprocess.CalledProcessError as e:
-        print(f"[!] Error checking Docker container status: {e}")
+        logger.warning(f"Error checking Docker container status: {e}")
         return False
 
 def start_semgrep_docker_container():
     """Start the Semgrep Docker container if it's not running."""
     try:
-        print("[+] Starting Semgrep Docker container...")
+        logger.info("Starting Semgrep Docker container...")
         subprocess.run(["docker", "run", "-d", "--name", "semgrep", "-v", f"{os.getcwd()}:/mnt", "returntocorp/semgrep"], check=True)
-        print("[+] Semgrep Docker container started.")
+        logger.info("Semgrep Docker container started.")
     except subprocess.CalledProcessError as e:
-        print(f"[!] Error starting Semgrep Docker container: {e}")
+        logger.warning(f"Error starting Semgrep Docker container: {e}")
 
 def get_apktool_cmd():
     # adjust this if needed - or make configurable
@@ -40,11 +40,11 @@ def get_apktool_cmd():
     return apktool_path
 
 def decompile_apk(apk_path, output_dir):
-    print(f"[+] Decompiling {apk_path} with apktool...")
+    logger.info(f"Decompiling {apk_path} with apktool...")
     subprocess.run([get_apktool_cmd(), "d", "-f", apk_path, "-o", output_dir])
 
 def extract_strings(apk_path, output_file):
-    print(f"[+] Extracting strings from {apk_path}...")
+    logger.info(f"Extracting strings from {apk_path}...")
     with open(output_file, "w") as out:
         subprocess.run(["strings", apk_path], stdout=out)
 
@@ -67,17 +67,20 @@ def extract_permissions(manifest_path):
             "android.permission.READ_PHONE_STATE",
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.ACCESS_COARSE_LOCATION",
-            "android.permission.READ_CONTACTS"
+            "android.permission.READ_CONTACTS",
+            "android.permission.AUTHENTICATE_ACCOUNTS",
+            "android.permission.GET_ACCOUNTS",
+            "android.permission.CAMERA"
         ]
         
         # Identify and report dangerous permissions
         dangerous_found = [perm for perm in permission_list if perm in dangerous_permissions]
         if dangerous_found:
-            print("[!] Dangerous permissions found in AndroidManifest.xml:")
+            logger.warning("Dangerous permissions found in AndroidManifest.xml:")
             for perm in dangerous_found:
                 print(f" - {perm}")
         else:
-            print("[+] No dangerous permissions found.")
+            logger.info("No dangerous permissions found.")
         
         return permission_list
     except Exception as e:
@@ -85,32 +88,32 @@ def extract_permissions(manifest_path):
         return []
 
 def scan_manifest(manifest_path):
-    print(f"[+] Scanning AndroidManifest.xml for exported components...")
+    logger.info(f"Scanning AndroidManifest.xml for exported components...")
     with open(manifest_path, "r") as manifest:
         content = manifest.read()
         #Step 1: Regex to capture all components with android:exported="true"
         exported = re.findall(r'<(activity|service|receiver)[^>]*android:exported="true"[^>]*android:name="([^"]+)"', content)
         # Print the number of exported components found
-        print(f"[*] Exported components found: {len(exported)}")
+        logger.logtext(f"Exported components found: {len(exported)}")
         if exported:
             for match in exported:
                 component_type = match[0]
                 component_name = match[1]
-                print(f"[*] Exported {component_type} component found: {component_name}")
+                logger.logtext(f"Exported {component_type} component found: {component_name}")
         else:
-            print("[*] No exported components found.")
+            logger.logtext("No exported components found.")
         
         #Step 2: Extract and print permissions from the manifest
         permissions = extract_permissions(manifest_path)
         if permissions:
-            print ("[+] Permissions Declared in AndroidManifest.xml:")
+            logger.info("Permissions Declared in AndroidManifest.xml:")
             for perm in permissions:
                 print(f" - {perm}")
             else:
-                print("[+] No permissions found in AndroidManifest.xml")
+                logger.info("No permissions found in AndroidManifest.xml")
 
 def scan_smali_code(smali_dir):
-    print("[+] Scanning smali files for potential dangerous code...")
+    logger.info("Scanning smali files for potential dangerous code...")
     # Define smali patterns to look for in code (e.g., dangerous API calls)
     dangerous_patterns = [
         r'Ljava/net/URL;-><init>\(Ljava/lang/String;\)',
@@ -129,16 +132,16 @@ def scan_smali_code(smali_dir):
                     for pattern in dangerous_patterns:
                         matches = re.findall(pattern, content)
                         if matches:
-                            print(f"[*] Found dangerous pattern in {file_path}: {matches}")
+                            logger.logtext(f"Found dangerous pattern in {file_path}: {matches}")
 
 def scan_decompiled_code(java_dir):
-    print("[+] Scanning Java files for potentially dangerous code...")
+    logger.info("Scanning Java files for potentially dangerous code...")
     # Define the semgrep command with the pattern to scan for risky code (like risky function calls, hardcoded credentials)
     semgrep_cmd = ["docker", "run", "--rm", "-v", f"{os.getcwd()}:/mnt", "returntocorp/semgrep", "semgrep", "--config", "auto", "/mnt"]
     try:
         subprocess.run(semgrep_cmd, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"[!] Error running Semgrep: {e}")
+        logger.warning(f"Error running Semgrep: {e}")
 
 def run_static_analysis(apk_path):
     downloads_folder = paths.get_output_folder()
@@ -158,7 +161,7 @@ def run_static_analysis(apk_path):
     if os.path.exists(manifest_path):
         scan_manifest(manifest_path)
     else:
-        logger.warning("[!] AndroidManifest.xml not found after decompilation.")
+        logger.warning("AndroidManifest.xml not found after decompilation.")
 
     # Scan the decompiled code (smali or Java)
     smali_dir = os.path.join(output_dir, 'smali')
@@ -169,7 +172,7 @@ def run_static_analysis(apk_path):
     elif os.path.exists(java_dir):
         scan_decompiled_code(java_dir)
     else:
-        logger.warning("[!] No smali or Java code found after decompilation.")
+        logger.warning("No smali or Java code found after decompilation.")
 
 if __name__ == "__main__":
     run_static_analysis(sys.argv[1])

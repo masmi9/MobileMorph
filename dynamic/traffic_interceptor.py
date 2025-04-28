@@ -18,13 +18,18 @@ class FridaTrafficInterceptor:
 
     def get_device(self):
         try:
-            # Try connecting to remote device first
-            device = frida.get_remote_device()
-            logger.info("Connected to remote Frida device.")
-        except Exception:
-            # Fallback to USB device if remote is not available
+            # Try to USB device if remote is not available
             device = frida.get_usb_device()
             logger.info("Connected to USB Frida device.")
+        except Exception:
+            # Fallback to remote device
+            logger.warning("USB device not found. Trying remote device...")
+            try:
+                device = frida.get_remote_device()
+                logger.info("Connected to remote Frida device.")
+            except Exception as e:
+                logger.error(f"No Frida device: found {str(e)}")
+                sys.exit(1)
         return device
 
     def list_frida_devices(self):

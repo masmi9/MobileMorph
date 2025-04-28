@@ -7,3 +7,6 @@ def warning(message):
 
 def error(message):
     print(f"[X] {message}")
+
+def logtext(message):
+    print(f"[*] {message}")
