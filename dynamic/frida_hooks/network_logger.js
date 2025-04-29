@@ -6,16 +6,24 @@ Java.perform(function () {
 
     URL.openConnection.overload().implementation = function () {
         var urlStr = this.toString();
-        send("URL opened: " + urlStr);
-
+        send("[Network] URL opened: " + urlStr);
         var conn = this.openConnection();
-
-        // If it's an HTTP connection, log the request method too
         if (Java.cast(conn, HttpURLConnection)) {
             var httpConn = Java.cast(conn, HttpURLConnection);
-            send("HTTP Method: " + httpConn.getRequestMethod());
+            send("[Network] Method: " + httpConn.getRequestMethod());
+            httpConn.connect.implementation = function () {
+                send("[Network] Connecting to: " + urlStr);
+                this.connect();
+                send("[Network] Connected.");
+            };
+            // Optional: Log request headers
+            httpConn.getRequestProperties.implementation = function () {
+                var props = this.getRequestProperties();
+                send("[Network] Headers: " + props.toString());
+                return props;
+            };
         }
-
         return conn;
     };
 });
+

@@ -12,8 +12,9 @@ def check_device_connection():
     devices = [line for line in result.splitlines() if "\tdevice" in line]
     if not devices:
         logger.error("No devices/emulators connected. Please connect a device and try again.")
-        return False
-    return True
+        return None     # No Android device
+    logger.info("Detected Android device.")
+    return "android"
 
 def ensure_frida_server_running():
     """Ensure frida-server is running on the connected device."""
@@ -75,29 +76,49 @@ def get_main_activity(apk_path):
             if line.startswith("launchable-activity:"):
                 parts = line.split()
                 for part in parts:
-                    if part.startwith("name="):
+                    if part.startswith("name="):
                         return part.split("=")[1].replace("'", "")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to extract main activity: {e}")
     return None
 
-def uninstall_app(package_name):
+def get_bundle_id_from_ipa(ipa_path):
+    """Extracts bundle id form .ipa (Info.plist inside Payload)."""
+    try:
+        file = "Info.plist"
+        subprocess.run(["unzip", "-o", ipa_path, "-d", "temp_ipa_extract"], check=True)
+        for root, _, files in os.walk("temp_ipa_extract/Payload"):
+            for file in files:
+                plist_path = os.path.join(root, "Info.plist")
+                output = subprocess.check_output(["plutil", "-extract", "CFBundleIdentifier", "xml1", "-o", "-", plist_path], text=True)
+                return output.strip().split(">")[1].split("<")[0]
+    except Exception as e:
+        logger.error(f"Failed to extract bundle id: {e}")
+    return None
+
+def uninstall_app_android(package_name):
     """Uninstalls the app if it's already installed."""
     logger.info(f"Uninstalling existing app {package_name} (if present)...")
     subprocess.run(["adb", "uninstall", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def launch_app(package_name, main_activity):
+def uninstall_app_ios(bundle_id):
+    """Uninstalls the app if it's already installed."""
+    logger.info(f"Uninstalling existing app {bundle_id} (if present)...")
+    subprocess.run(["ideviceinstaller", "-U", bundle_id])
+
+def launch_app_android(package_name, main_activity):
     logger.info(f"Launching {package_name}/{main_activity}...")
     try:
-        subprocess.run([
-            "adb", "shell", "am", "start",
-            "-n", f"{package_name}/{main_activity}"
-        ], check=True)
+        subprocess.run(["adb", "shell", "am", "start", "-n", f"{package_name}/{main_activity}"], check=True)
         logger.info("App launched successfully.")
     except subprocess.CalledProcessError:
         logger.error("Failed to launch app.")
 
-def wait_for_process(package_name, timeout=10):
+def launch_app_ios(bundle_id):
+    logger.info(f"Launching iOS app {bundle_id}...")
+    subprocess.run(["idevicedebug", "run", bundle_id])
+
+def wait_for_android_process(package_name, timeout=10):
     """Waits for the app process to start."""
     logger.info(f"Waiting for process {package_name} to start...")
     start_time = time.time()
@@ -110,39 +131,14 @@ def wait_for_process(package_name, timeout=10):
     logger.error(f"Timeout: {package_name} process not found.")
     return False
 
-def get_bundle_id_from_ipa(ipa_path):
-    """Extracts bundle id form .ipa (Info.plist inside Payload)."""
-    try:
-        subprocess.run(["unzip", "-o", ipa_path, "-d", "temp_ipa_extract"], check=True)
-        info_plist = None
-        for root, _, files in os.walk("temp_ipa_extract/Payload"):
-            for file in files:
-                if file == "Info.plist":
-                    info_plist = os.path.join(root, file)
-                    break
-        if info_plist:
-            output = subprocess.check_output(["plutil", "-extract", "CFBundleIdentifier", "xml1", "-o", "-", info_plist], text=True)
-            return output.strip().split(">")[1].split("<")[0]
-    except Exception as e:
-        logger.error(f"Failed to extract bundle id: {e}")
-    return None
-
-def install_ipa(ipa_path):
-    subprocess.run(["ideviceinstaller", "-i", ipa_path])
-
-def uninstall_ipa(bundle_id):
-    subprocess.run("ideviceinstaller", "-U", bundle_id)
-
-def launch_ipa_app(bundle_id):
-    subprocess.run("idevicedebug", "run", bundle_id)
-
 def wait_for_ios_process(bundle_id, timeout=10):
-    logger.info(f"Waiting for iOS app {bundle_id} process to start...")
+    """Waits for the app process to start."""
+    logger.info(f"Waiting for process {bundle_id} to start...")
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            output = subprocess.check_output(["frida-ps", "-Uai"], text=True)
-            if bundle_id in output:
+            result = subprocess.run(["frida-ps", "-Uai"], text=True)
+            if bundle_id in result:
                 logger.info(f"iOS App {bundle_id} is running.")
                 return True
         except Exception:
@@ -169,7 +165,8 @@ def start_dynamic_analysis(app_path):
 
     if not frida_helpers.check_frida_version_match():
         logger.error("Aborting dynamic analysis due to the Frida version mismatch.")
-
+        return
+    
     if app_path.endswith(".apk") and device_type == "android":
         package_name = get_package_name_from_apk(app_path)
         main_activity = get_main_activity(app_path)
@@ -177,15 +174,16 @@ def start_dynamic_analysis(app_path):
             logger.error("Failed to extract package name - aborting dynamic analysis.")
             return
         
-        uninstall_app(package_name)
+        uninstall_app_android(package_name)
         subprocess.run(["adb", "install", app_path])
-        launch_app(package_name, main_activity)
+        launch_app_android(package_name, main_activity)
 
-        if not wait_for_process(package_name):
+        if not wait_for_android_process(package_name):
             return
         
         interceptor = FridaTrafficInterceptor(package_name)
-        interceptor.start_hook()
+        target_name = package_name
+
     elif app_path.endswith(".ipa") and device_type == "ios":
         bundle_id = get_bundle_id_from_ipa(app_path)
 
@@ -193,20 +191,21 @@ def start_dynamic_analysis(app_path):
             logger.error("Failed to extract bundle id.")
             return
         
-        uninstall_app(bundle_id)
-        install_ipa(app_path)
-        launch_ipa_app(bundle_id)
+        uninstall_app_ios(bundle_id)
+        subprocess.run(["ideviceinstaller", "-i", app_path])
+        launch_app_ios(bundle_id)
 
         if not wait_for_ios_process(bundle_id):
             return
         
         interceptor = FridaTrafficInterceptorIOS(bundle_id)
-        interceptor.start_hook()
+        target_name = bundle_id
+
     else:
         logger.error("Unsupported app format. Only APK supported.")
         return
 
-    logger.info(f"Package name: {package_name}")
+    interceptor.start_hook()
 
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",

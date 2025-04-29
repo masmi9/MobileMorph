@@ -9,6 +9,7 @@ class FridaTrafficInterceptor:
         self.package_name = package_name
         self.session = None
         self.script = None
+        self.hook_event = threading.Event()
     
     def on_message(self, message, data):
         if message['type'] == 'send':
@@ -85,20 +86,27 @@ class FridaTrafficInterceptor:
             self.session = device.attach(target.pid)
             logger.info(f"Attached to PID {target.pid}")
 
-            with open("dynamic/frida_hooks/network_logger.js") as f:
+            # Inject a default simple network hook (can be expanded to pass custom script)
+            self.load_frida_script("dynamic/frida_hooks/network_logger.js")
+
+        except Exception as e:
+            logger.error(f"Failed to hook into {self.package_name}: {str(e)}")
+            sys.exit(1)
+
+    def load_frida_script(self, script_path):
+        """Load a specific Frida script dynamically."""
+        try:
+            with open(script_path) as f:
                 script_code = f.read()
 
             self.script = self.session.create_script(script_code)
             self.script.on("message", self.on_message)
             self.script.load()
 
-            logger.info("Frida hook injected successfully. Monitoring traffic...")
-            # Keep the process alive for Frida messages
-            threading.Event().wait()
-
+            logger.info(f"Loaded Frida script: {script_path}")
+            self.hook_event.wait()  # Control when to clean up
         except Exception as e:
-            logger.error(f"Failed to hook into {self.package_name}: {str(e)}")
-            sys.exit(1)
+            logger.error(f"Failed to load Frida script: {str(e)}")
 
     def stop_hook(self):
         try:
