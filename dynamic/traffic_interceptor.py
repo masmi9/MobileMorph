@@ -99,3 +99,14 @@ class FridaTrafficInterceptor:
         except Exception as e:
             logger.error(f"Failed to hook into {self.package_name}: {str(e)}")
             sys.exit(1)
+
+    def stop_hook(self):
+        try:
+            if self.script:
+                self.script.unload()
+                logger.info("Unloaded Frida script.")
+            if self.session:
+                self.session.detach()
+                logger.info("Detached from app process.")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")

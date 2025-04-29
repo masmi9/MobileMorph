@@ -1,8 +1,10 @@
+import os
 import sys
 import time
 import threading
 import subprocess
 from dynamic.traffic_interceptor import FridaTrafficInterceptor
+from dynamic.traffic_interceptor_ios import FridaTrafficInterceptorIOS
 from utils import logger, frida_helpers
 
 def check_device_connection():
@@ -12,25 +14,6 @@ def check_device_connection():
         logger.error("No devices/emulators connected. Please connect a device and try again.")
         return False
     return True
-
-def get_package_name_from_apk(apk_path):
-    """Extracts the package name from APK using aapt."""
-    try:
-        output = subprocess.check_output(["aapt", "dump", "badging", apk_path], shell=True, text=True)
-        for line in output.splitlines():
-            if line.startswith("package:"):
-                parts = line.split()
-                for part in parts:
-                    if part.startswith("name="):
-                        return part.split("=")[1].replace("'", "")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to extract package name: {e}")
-    return None
-
-def uninstall_app(package_name):
-    """Uninstalls the app if it's already installed."""
-    logger.info(f"Uninstalling existing app {package_name} (if present)...")
-    subprocess.run(["adb", "uninstall", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def ensure_frida_server_running():
     """Ensure frida-server is running on the connected device."""
@@ -70,6 +53,50 @@ def ensure_frida_server_running():
         logger.error(f"Failed to start frida-server: {e}")
         sys.exit(1)
 
+def get_package_name_from_apk(apk_path):
+    """Extracts the package name from APK using aapt."""
+    try:
+        output = subprocess.check_output(["aapt", "dump", "badging", apk_path], shell=True, text=True)
+        for line in output.splitlines():
+            if line.startswith("package:"):
+                parts = line.split()
+                for part in parts:
+                    if part.startswith("name="):
+                        return part.split("=")[1].replace("'", "")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to extract package name: {e}")
+    return None
+
+def get_main_activity(apk_path):
+    """Extracts the main activity from APK using aapt."""
+    try:
+        output = subprocess.check_output(["aapt", "dump", "badging", apk_path], shell=True, text=True)
+        for line in output.splitlines():
+            if line.startswith("launchable-activity:"):
+                parts = line.split()
+                for part in parts:
+                    if part.startwith("name="):
+                        return part.split("=")[1].replace("'", "")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to extract main activity: {e}")
+    return None
+
+def uninstall_app(package_name):
+    """Uninstalls the app if it's already installed."""
+    logger.info(f"Uninstalling existing app {package_name} (if present)...")
+    subprocess.run(["adb", "uninstall", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def launch_app(package_name, main_activity):
+    logger.info(f"Launching {package_name}/{main_activity}...")
+    try:
+        subprocess.run([
+            "adb", "shell", "am", "start",
+            "-n", f"{package_name}/{main_activity}"
+        ], check=True)
+        logger.info("App launched successfully.")
+    except subprocess.CalledProcessError:
+        logger.error("Failed to launch app.")
+
 def wait_for_process(package_name, timeout=10):
     """Waits for the app process to start."""
     logger.info(f"Waiting for process {package_name} to start...")
@@ -83,6 +110,47 @@ def wait_for_process(package_name, timeout=10):
     logger.error(f"Timeout: {package_name} process not found.")
     return False
 
+def get_bundle_id_from_ipa(ipa_path):
+    """Extracts bundle id form .ipa (Info.plist inside Payload)."""
+    try:
+        subprocess.run(["unzip", "-o", ipa_path, "-d", "temp_ipa_extract"], check=True)
+        info_plist = None
+        for root, _, files in os.walk("temp_ipa_extract/Payload"):
+            for file in files:
+                if file == "Info.plist":
+                    info_plist = os.path.join(root, file)
+                    break
+        if info_plist:
+            output = subprocess.check_output(["plutil", "-extract", "CFBundleIdentifier", "xml1", "-o", "-", info_plist], text=True)
+            return output.strip().split(">")[1].split("<")[0]
+    except Exception as e:
+        logger.error(f"Failed to extract bundle id: {e}")
+    return None
+
+def install_ipa(ipa_path):
+    subprocess.run(["ideviceinstaller", "-i", ipa_path])
+
+def uninstall_ipa(bundle_id):
+    subprocess.run("ideviceinstaller", "-U", bundle_id)
+
+def launch_ipa_app(bundle_id):
+    subprocess.run("idevicedebug", "run", bundle_id)
+
+def wait_for_ios_process(bundle_id, timeout=10):
+    logger.info(f"Waiting for iOS app {bundle_id} process to start...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            output = subprocess.check_output(["frida-ps", "-Uai"], text=True)
+            if bundle_id in output:
+                logger.info(f"iOS App {bundle_id} is running.")
+                return True
+        except Exception:
+            pass
+        time.sleep(1)
+    logger.error(f"Timeout: {bundle_id} process not found.")
+    return False
+
 def run_frida_script(script_path, package_name):
     logger.logtext(f"Running Frida script: {script_path}")
     subprocess.run([
@@ -93,7 +161,8 @@ def start_dynamic_analysis(app_path):
     """Launch dynamic analysis and start traffic interception."""
     logger.info(f"Starting dynamic analysis for {app_path}...")
 
-    if not check_device_connection():
+    device_type = check_device_connection()
+    if not device_type:
         return
 
     ensure_frida_server_running()
@@ -101,30 +170,43 @@ def start_dynamic_analysis(app_path):
     if not frida_helpers.check_frida_version_match():
         logger.error("Aborting dynamic analysis due to the Frida version mismatch.")
 
-    if app_path.endswith(".apk"):
+    if app_path.endswith(".apk") and device_type == "android":
         package_name = get_package_name_from_apk(app_path)
-        if not package_name:
+        main_activity = get_main_activity(app_path)
+        if not package_name or not main_activity:
             logger.error("Failed to extract package name - aborting dynamic analysis.")
             return
         
         uninstall_app(package_name)
-
-        logger.info(f"Installing {app_path}...")
         subprocess.run(["adb", "install", app_path])
+        launch_app(package_name, main_activity)
 
-        logger.info(f"Launching app {package_name}")
-        subprocess.run(["adb", "shell", "monkey", "-p", package_name, "-c", "android.intent.category.LAUNCHER", "1"])
-        
         if not wait_for_process(package_name):
             return
+        
+        interceptor = FridaTrafficInterceptor(package_name)
+        interceptor.start_hook()
+    elif app_path.endswith(".ipa") and device_type == "ios":
+        bundle_id = get_bundle_id_from_ipa(app_path)
+
+        if not bundle_id:
+            logger.error("Failed to extract bundle id.")
+            return
+        
+        uninstall_app(bundle_id)
+        install_ipa(app_path)
+        launch_ipa_app(bundle_id)
+
+        if not wait_for_ios_process(bundle_id):
+            return
+        
+        interceptor = FridaTrafficInterceptorIOS(bundle_id)
+        interceptor.start_hook()
     else:
         logger.error("Unsupported app format. Only APK supported.")
         return
 
     logger.info(f"Package name: {package_name}")
-
-    interceptor = FridaTrafficInterceptor(package_name)
-    interceptor.start_hook()
 
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",
@@ -139,10 +221,13 @@ def start_dynamic_analysis(app_path):
         threads.append(t)
 
     logger.info("Frida hooks running. You can interact with the app now.")
-    time.sleep(30)
+    time.sleep(25)
 
     for t in threads:
         t.join()
+
+    logger.info("Cleaning up Frida hooks...")
+    interceptor.stop_hook()
 
     logger.info("Dynamic analysis finished successfully!")
 
