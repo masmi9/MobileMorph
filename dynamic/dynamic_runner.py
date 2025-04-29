@@ -6,6 +6,8 @@ import subprocess
 from dynamic.traffic_interceptor import FridaTrafficInterceptor
 from dynamic.traffic_interceptor_ios import FridaTrafficInterceptorIOS
 from utils import logger, frida_helpers
+from dynamic.modules.logcat_monitor import LogcatMonitor
+from dynamic.modules.storage_monitor import StorageMonitor
 
 def check_device_connection():
     result = subprocess.check_output("adb devices", shell=True, text=True)
@@ -167,6 +169,8 @@ def start_dynamic_analysis(app_path):
         logger.error("Aborting dynamic analysis due to the Frida version mismatch.")
         return
     
+    app_identifier = None   # Common variable for both apk and ipa
+
     if app_path.endswith(".apk") and device_type == "android":
         package_name = get_package_name_from_apk(app_path)
         main_activity = get_main_activity(app_path)
@@ -174,6 +178,8 @@ def start_dynamic_analysis(app_path):
             logger.error("Failed to extract package name - aborting dynamic analysis.")
             return
         
+        app_identifier = package_name
+
         uninstall_app_android(package_name)
         subprocess.run(["adb", "install", app_path])
         launch_app_android(package_name, main_activity)
@@ -181,8 +187,8 @@ def start_dynamic_analysis(app_path):
         if not wait_for_android_process(package_name):
             return
         
-        interceptor = FridaTrafficInterceptor(package_name)
-        target_name = package_name
+        interceptor = FridaTrafficInterceptor(app_identifier)
+        device = interceptor.get_device()
 
     elif app_path.endswith(".ipa") and device_type == "ios":
         bundle_id = get_bundle_id_from_ipa(app_path)
@@ -191,6 +197,8 @@ def start_dynamic_analysis(app_path):
             logger.error("Failed to extract bundle id.")
             return
         
+        app_identifier = bundle_id
+        
         uninstall_app_ios(bundle_id)
         subprocess.run(["ideviceinstaller", "-i", app_path])
         launch_app_ios(bundle_id)
@@ -198,19 +206,25 @@ def start_dynamic_analysis(app_path):
         if not wait_for_ios_process(bundle_id):
             return
         
-        interceptor = FridaTrafficInterceptorIOS(bundle_id)
-        target_name = bundle_id
+        # Start Logcat Monitoring here
+        logcat_monitor = LogcatMonitor(app_package=app_identifier, output_dir="reports/")
+        logcat_monitor.start()
+        interceptor = FridaTrafficInterceptorIOS(app_identifier)
+        device = interceptor.get_device()
 
     else:
         logger.error("Unsupported app format. Only APK supported.")
         return
 
-    interceptor.start_hook()
+    logger.info(f"Target identifier: {app_identifier}")
+    interceptor.start_hook(device=device, timeout=30)
 
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",
         "dynamic/frida_hooks/hook_crypt.js",
-        "dynamic/frida_hooks/network_logger.js"
+        "dynamic/frida_hooks/network_logger.js",
+        "dynamic/frida_hooks/auth_bypass.js",
+        "dynamic/frida_hooks/root_bypass.js"
     ]
 
     threads = []
@@ -224,6 +238,18 @@ def start_dynamic_analysis(app_path):
 
     for t in threads:
         t.join()
+
+    # Pull and Scan Storage here
+    storage_monitor = StorageMonitor(app_package=app_identifier, output_dir="reports/")
+    findings = storage_monitor.run()
+
+    if findings:
+        logger.info("Sensitive storage findings detected and stored.")
+    else:
+        logger.info("No major storage issues found.")
+
+    # Stop Logcat Monitoring
+    logcat_monitor.stop()
 
     logger.info("Cleaning up Frida hooks...")
     interceptor.stop_hook()

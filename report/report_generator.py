@@ -1,32 +1,73 @@
 import os
-from datetime import datetime
-from utils import paths, file_utils, logger
+import datetime
+from utils import logger
 
-def generate_report(app_name, analysis_type, findings):
-    downloads_folder = paths.get_output_folder()
-    reports_folder = os.path.join(downloads_folder, "Reports")
-    file_utils.ensure_dir(reports_folder)
+class ReportGenerator:
+    def __init__(self, app_name, output_dir, mode="static"):
+        self.app_name = app_name
+        self.output_dir = output_dir
+        self.mode = mode
+        self.report_file = os.path.join(output_dir, f"{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_{app_name}_report.md")
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = os.path.join(reports_folder, f"{app_name}_{analysis_type}_report_{timestamp}.txt")
+    def generate_static_report(self):
+        logger.info("Generating static analysis report...")
+        manifest_results = os.path.join(self.output_dir, f"{self.app_name}_manifest_results.txt")
+        strings_results = os.path.join(self.output_dir, f"{self.app_name}_strings.txt")
 
-    with open(report_file, 'w') as f:
-        f.write("=====================================\n")
-        f.write(f"MobileMorph Analysis Report\n")
-        f.write("=====================================\n")
-        f.write(f"App Name: {app_name}\n")
-        f.write(f"Analysis Type: {analysis_type}\n")
-        f.write(f"Generated: {datetime.now()}\n\n")
-        f.write("=====================================\n")
-        f.write("Findings Summary\n")
-        f.write("=====================================\n")
+        with open(self.report_file, "w") as report:
+            report.write(f"# Static Analysis Report for {self.app_name}\n\n")
 
-        if not findings:
-            f.write("No findings detected.\n")
+            if os.path.exists(manifest_results):
+                report.write("## Exported Components & Permissions\n\n")
+                with open(manifest_results, "r") as f:
+                    report.write(f.read())
+            else:
+                report.write("- No manifest results found.\n\n")
+
+            if os.path.exists(strings_results):
+                report.write("## Interesting Strings\n\n")
+                with open(strings_results, "r") as f:
+                    report.write(f.read())
+            else:
+                report.write("- No extracted strings found.\n\n")
+
+    def generate_dynamic_report(self):
+        logger.info("Generating dynamic analysis report...")
+        traffic_log = os.path.join(self.output_dir, f"{self.app_name}_traffic_log.txt")
+
+        with open(self.report_file, "w") as report:
+            report.write(f"# Dynamic Analysis Report for {self.app_name}\n\n")
+
+            if os.path.exists(traffic_log):
+                report.write("## Intercepted HTTP/S Traffic\n\n")
+                with open(traffic_log, "r") as f:
+                    report.write(f.read())
+            else:
+                report.write("- No traffic logs captured.\n\n")
+
+    def generate_exploit_report(self):
+        logger.info("Generating exploit findings report...")
+        exploit_results = os.path.join(self.output_dir, f"{self.app_name}_exploit_results.txt")
+
+        with open(self.report_file, "w") as report:
+            report.write(f"# Exploitation Results for {self.app_name}\n\n")
+
+            if os.path.exists(exploit_results):
+                report.write("## Successful Findings\n\n")
+                with open(exploit_results, "r") as f:
+                    report.write(f.read())
+            else:
+                report.write("- No exploitation findings found.\n\n")
+
+    def generate_report(self):
+        if self.mode == "static":
+            self.generate_static_report()
+        elif self.mode == "dynamic":
+            self.generate_dynamic_report()
+        elif self.mode == "exploit":
+            self.generate_exploit_report()
         else:
-            for section_title, section_content in findings.items():
-                f.write(f"\n--- {section_title} ---\n")
-                f.write(f"{section_content}\n")
+            logger.error(f"Unknown report mode: {self.mode}")
 
-    logger.info(f"[+] Report saved to {report_file}")
-    return report_file
+        logger.success(f"Report generated: {self.report_file}")
+        return self.report_file

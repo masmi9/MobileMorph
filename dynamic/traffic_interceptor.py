@@ -2,36 +2,63 @@ import frida
 import sys
 import threading
 import time
+import os
 from utils import logger
+from dynamic.traffic_analyzer import TrafficAnalyzer
+from datetime import datetime
 
 class FridaTrafficInterceptor:
-    def __init__(self, package_name):
+    def __init__(self, package_name, output_dir):
         self.package_name = package_name
         self.session = None
         self.script = None
         self.hook_event = threading.Event()
-    
+        self.traffic_log_path = os.path.join(output_dir, f"{package_name}_traffic_log.txt")
+
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+
     def on_message(self, message, data):
         if message['type'] == 'send':
-            logger.info(f"[Frida Hook] {message['payload']}")
+            payload = message['payload']
+            logger.info(f"[Frida Hook] {payload}")
+            self.save_traffic(payload)
         elif message['type'] == 'error':
             logger.error(f"[Frida Error] {message}")
 
+    def save_traffic(self, payload):
+        try:
+            with open(self.traffic_log_path, "a", encoding="utf-8") as f:
+                f.write(payload + "\n")
+        except Exception as e:
+            logger.error(f"Failed to save traffic: {str(e)}")
+
     def get_device(self):
         try:
+            manager = frida.get_device_manager()
+            devices = manager.enumerate_devices()
             # Try to USB device if remote is not available
-            device = frida.get_usb_device()
-            logger.info("Connected to USB Frida device.")
-        except Exception:
-            # Fallback to remote device
-            logger.warning("USB device not found. Trying remote device...")
-            try:
-                device = frida.get_remote_device()
-                logger.info("Connected to remote Frida device.")
-            except Exception as e:
-                logger.error(f"No Frida device: found {str(e)}")
+            if not devices:
+                logger.error("No suitable Android Frida device found. Exiting.")
                 sys.exit(1)
-        return device
+            for device in devices:
+                if device.type not in ("usb", "remote"): 
+                    continue # Skip local PC devices
+                logger.info(f"Selecting Frida device: {device.name} for {self.package_name}...")
+                
+                try:
+                    processes = device.enumerate_processes()
+                    for process in processes:
+                        if self.package_name.lower() in process.name.lower():
+                            logger.info(f"Found {self.package_name} running on device {device.name} ({device.type})!")
+                            return device
+                except Exception as e:
+                    logger.warning(f"Failed to enumerate processes on {device.name}: {str(e)}")
+            logger.error(f"No Frida device: found {str(e)}")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Could not find {self.package_name} on any connected devices. Make sure the app is running.")
+            sys.exit(1)
 
     def list_frida_devices(self):
         """Lists all available Frida devices and their processes."""
@@ -60,21 +87,22 @@ class FridaTrafficInterceptor:
             logger.error(f"Failed to list devices: {str(e)}")
             return False
 
-    def start_hook(self):
+    def start_hook(self, device, timeout=30):
         try:
             # List devices and ensure Frida is connected properly
             if not self.list_frida_devices():
                 logger.error("No Frida devices detected. Exiting.")
                 sys.exit(1)
 
-            logger.info(f"Attaching to {self.package_name}...")
+            logger.info(f"Attaching to {self.package_name} on device {device.name}...")
 
-            device = self.get_device()
+            #device = self.get_device()
 
             # Wait for process to appear
-            for _ in range(10):
+            start_time = time.time()
+            while time.time() - start_time < timeout:
                 processes = device.enumerate_processes()
-                target = next((p for p in processes if self.package_name in p.name), None)
+                target = next((p for p in processes if self.package_name.lower() in p.name.lower()), None)
                 if target:
                     break
                 logger.info("Waiting for app process to start...")
@@ -84,10 +112,19 @@ class FridaTrafficInterceptor:
                 sys.exit(1)
 
             self.session = device.attach(target.pid)
-            logger.info(f"Attached to PID {target.pid}")
+            logger.info(f"Attached to PID {target.pid} for {self.package_name}")
 
+            # Load upgraded Frida HTTP logger
+            with open("dynamic/frida_hooks/network_logger.js") as f:
+                script_code = f.read()
+            
             # Inject a default simple network hook (can be expanded to pass custom script)
-            self.load_frida_script("dynamic/frida_hooks/network_logger.js")
+            self.script = self.session.create_script(script_code)
+            self.script.on("message", self.on_message)
+            self.script.load()
+
+            logger.info("Frida hook injected successfully. Monitoring traffic...")
+            threading.Event().wait()
 
         except Exception as e:
             logger.error(f"Failed to hook into {self.package_name}: {str(e)}")
@@ -107,6 +144,7 @@ class FridaTrafficInterceptor:
             self.hook_event.wait()  # Control when to clean up
         except Exception as e:
             logger.error(f"Failed to load Frida script: {str(e)}")
+            sys.exit(1)
 
     def stop_hook(self):
         try:
@@ -116,5 +154,10 @@ class FridaTrafficInterceptor:
             if self.session:
                 self.session.detach()
                 logger.info("Detached from app process.")
+
+            # Analyze captured traffic after stop
+            logger.info("Starting traffic analysis...")
+            TrafficAnalyzer.analyze_traffic(self.traffic_log_path)
+
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}")

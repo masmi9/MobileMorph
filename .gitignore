@@ -4,6 +4,7 @@ static/__pycache__
 utils/__pycache__
 report/__pycache__
 dynamic/__pycache__
+exploits/__pycache__
 actions-runner/
 .venv/
 PMPA/
