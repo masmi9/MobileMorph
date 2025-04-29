@@ -5,3 +5,5 @@ utils/__pycache__
 report/__pycache__
 dynamic/__pycache__
 actions-runner/
+.venv/
+PMPA/

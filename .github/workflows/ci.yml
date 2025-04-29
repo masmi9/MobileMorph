@@ -3,13 +3,22 @@ name: MobileMorph CI
 on:
   workflow_dispatch: 
     inputs:
-        apk_path:
-            description: 'Path to the APK file on your local machine (relative to repo)'
+        app_path:
+            description: 'Path to the APK file or IPA file on your local machine (relative to repo)'
             required: true
-            default: 'injuredAndroid.apk'
+            type: string
+            default: 'insert path to .apk or .ipa file'
+        platform:
+            description: 'Platform (Android or iOS)'
+            required: true
+            default: 'Android or iOS'
+            type: choice
+            options:
+              - android
+              - ios
 
 jobs:
-  local-analysis:
+  mobilemorph-local-analysis-scan:
     runs-on: self-hosted
     steps:
     - name: Checkout repository
@@ -24,13 +33,24 @@ jobs:
 
     - name: Run Static Analysis (APK)
       run: |
-        python main.py --static --apk "${{github.event.inputs.apk_path}}"
-
+        if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
+          python main.py --static --apk "${{ github.event.inputs.app_path }}"
+        elif [[ "${{ github.event.inputs.platform }}" == "ios" ]]; then
+          python main.py --static --ipa "${{ github.event.inputs.app_path }}"
+        else
+          echo "Unknown platform input!" && exit 1
+        fi
     - name: Run Dynamic Analysis (APK)
       run: |
-        python main.py --dynamic --apk "${{github.event.inputs.apk_path}}"
+        if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
+          python main.py --dynamic --apk "${{ github.event.inputs.app_path }}"
+        elif [[ "${{ github.event.inputs.platform }}" == "ios" ]]; then
+          python main.py --dynamic --ipa "${{ github.event.inputs.app_path }}"
+        else
+          echo "Unknown platform input!" && exit 1
+        fi
       env: 
-        GH_TOKEN: ${{secrets.GH_TOKEN}} # Use the token as an environment variable
+        GH_TOKEN: ${{secrets.GITHUB_TOKEN}} # Use the token as an environment variable
 
     - name: Upload Reports
       uses: actions/upload-artifact@v4
