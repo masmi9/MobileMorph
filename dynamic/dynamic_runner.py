@@ -167,6 +167,8 @@ def start_dynamic_analysis(app_path):
         logger.error("Aborting dynamic analysis due to the Frida version mismatch.")
         return
     
+    app_identifier = None   # Common variable for both apk and ipa
+
     if app_path.endswith(".apk") and device_type == "android":
         package_name = get_package_name_from_apk(app_path)
         main_activity = get_main_activity(app_path)
@@ -174,6 +176,8 @@ def start_dynamic_analysis(app_path):
             logger.error("Failed to extract package name - aborting dynamic analysis.")
             return
         
+        app_identifier = package_name
+
         uninstall_app_android(package_name)
         subprocess.run(["adb", "install", app_path])
         launch_app_android(package_name, main_activity)
@@ -181,8 +185,8 @@ def start_dynamic_analysis(app_path):
         if not wait_for_android_process(package_name):
             return
         
-        interceptor = FridaTrafficInterceptor(package_name)
-        target_name = package_name
+        interceptor = FridaTrafficInterceptor(app_identifier)
+        device = interceptor.get_device()
 
     elif app_path.endswith(".ipa") and device_type == "ios":
         bundle_id = get_bundle_id_from_ipa(app_path)
@@ -191,6 +195,8 @@ def start_dynamic_analysis(app_path):
             logger.error("Failed to extract bundle id.")
             return
         
+        app_identifier = bundle_id
+        
         uninstall_app_ios(bundle_id)
         subprocess.run(["ideviceinstaller", "-i", app_path])
         launch_app_ios(bundle_id)
@@ -198,14 +204,14 @@ def start_dynamic_analysis(app_path):
         if not wait_for_ios_process(bundle_id):
             return
         
-        interceptor = FridaTrafficInterceptorIOS(bundle_id)
-        target_name = bundle_id
+        interceptor = FridaTrafficInterceptorIOS(app_identifier)
 
     else:
         logger.error("Unsupported app format. Only APK supported.")
         return
 
-    interceptor.start_hook()
+    logger.info(f"Target identifier: {app_identifier}")
+    interceptor.start_hook(device=device, timeout=30)
 
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",
