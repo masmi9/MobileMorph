@@ -67,3 +67,55 @@ MobileMorph/
 │   ├── file_utils.py
 │   └── paths.py
 └── requirements.txt
+```
+
+## Usage
+### Run All Analyses
+```bash
+python3 main.py --apk path/to/app.apk --static --dynamic --exploit
+```
+### Static Analysis Only
+```bash
+python3 main.py --apk path/to/app.apk --static
+```
+### Dynamic Analysis with Frida
+```bash
+python3 main.py --apk path/to/app.apk --dynamic
+```
+### Exploitation (after dynamic)
+```bash
+python3 main.py --apk path/to/app.apk --exploit
+```
+
+## Attack Surface Coverage
+- Insecure data storage (SharedPreferences, SQLite, local files)
+- Insecure communication (HTTP, broken SSL pinning)
+- Authentication bypass (login force, session tampering)
+- Authorization flaws (IDOR replay, role tampering)
+- Debug info leaks (via Logcat and traffic)
+- Root detection bypass (hooked via Frida)
+- Secrets in memory and local storage
+
+## Requirements
+- Python 3.8+
+- Android SDK + ADB
+- Frida CLI (pip install frida-tools)
+- jadx, aapt, ideviceinstaller, frida-server (for mobile runtime hooks)
+
+## Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+##⚙️ Roadmap
+- Automate emulator setup + snapshots
+- Add support for custom attack profiles (--profile full|minimal)
+- iOS dynamic support (experimental)
+- Integration with MobSF or Drozer-like module system
+- Add signature bypass via runtime patching
+
+
+
+👨‍💻 Author
+Malik Smith
+Built with ❤️ for advanced mobile app pentesting automation
