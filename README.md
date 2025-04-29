@@ -1,91 +1,69 @@
-# MobileMorph
+# MobileMorph - Automated Mobile App Pentesting Framework
 
-**MobileMorph** is an automated mobile application penetration testing framework for APK and IPA files, designed for static and dynamic analysis. Built as a preparation and companion tool for professional mobile application security assessments.
+**MobileMorph** is a modular and extensible security testing framework built to automate static and dynamic analysis of Android and iOS applications. It integrates Frida hooks, traffic interception, filesystem monitoring, and secrets detection to uncover critical mobile app vulnerabilities during runtime and build time.
 
 ---
 
 ## Features
 
-- Static analysis of APK and IPA files  
-- Hardcoded secrets discovery  
-- SSL pinning bypass via Frida  
-- API traffic interception with Burp or mitmproxy  
-- Dynamic runtime hook scripts  
-- Automated report generation (JSON/Markdown)
+### Static Analysis
+- APK/IPA decompilation using `jadx` / `class-dump`
+- Secrets scanning (`API keys`, `JWTs`, `passwords`) in extracted strings
+- Permission and component enumeration
+- Manifest/Info.plist analysis
+
+### Dynamic Analysis
+- Automated APK installation and app launch
+- Frida-based runtime hooking:
+  - `bypass_ssl.js`: Bypass SSL pinning
+  - `hook_crypto.js`: Hook cryptographic APIs
+  - `network_logger.js`: Log URL and network usage
+  - `auth_bypass.js`: Force login and bypass authentication
+  - `root_bypass.js`: Defeat root/jailbreak detection
+- Traffic interception:
+  - Android: `traffic_interceptor.py`
+  - iOS: `traffic_interceptor_ios.py`
+- Logcat monitoring for credential/session/token leaks
+- Filesystem monitoring for insecure storage (SharedPreferences, plaintext tokens, DBs)
+
+### Exploitation Toolkit
+- Basic IDOR fuzzing
+- Token replay and login bypass attempts
+- Placeholder for expanded modules (JWT tampering, broken auth logic, etc.)
 
 ---
 
-## Installation
+## Project Structure
 
-```bash
-git clone https://github.com/yourname/MobileMorph.git
-cd MobileMorph
-pip install -r requirements.txt
-```
-
----
-
-## Usage
-
-**Static Analysis**
-```bash
-python main.py --static --apk /path/to/app.apk
-python main.py --static --ipa /path/to/app.ipa
-```
-
-**Dynamic Analysis**
-```bash
-python main.py --dynamic --apk /path/to/app.apk
-python main.py --dynamic --ipa /path/to/app.ipa
-```
-
-**Generate Report**
-```bash
-python main.py --report
-```
-
----
-
-## Workflow
-```
-         +---------------------------+
-         | Decompile APK/IPA          |
-         +---------------------------+
-                     |
-            (Static Analysis)
-                     ↓
-         +---------------------------+
-         | Scan Manifest, Strings,    |
-         | Extract Permissions, Detect|
-         | Hardcoded Secrets          |
-         +---------------------------+
-                     |
-          (Dynamic Analysis via Frida)
-                     ↓
-         +---------------------------+
-         | Capture Network Traffic    |
-         | Bypass SSL Pinning         |
-         | Dump full HTTP traffic     |
-         +---------------------------+
-                     |
-           (Exploit + Traffic Analysis)
-                     ↓
-         +---------------------------+
-         | Analyze API tokens, secrets|
-         | Find insecure WebView/API  |
-         +---------------------------+
-                     |
-               (Report Phase)
-                     ↓
-         +---------------------------+
-         | Professional Report Output |
-         | Static + Dynamic + Exploit |
-         +---------------------------+
-
-User Command
- ├──> Static Analysis (--static) → Static Findings + Secrets
- ├──> Dynamic Analysis (--dynamic) → Frida + Traffic Capture
- ├──> Exploitation (--exploit) → APK/IPA Weaknesses
- ├──> Professional Report (--report) → HTML Report + Browser Launch
-
-```
+```plaintext
+MobileMorph/
+├── main.py                            # Entry point CLI orchestrator
+├── static/
+│   ├── apk_static_analysis.py
+│   ├── ipa_static_analysis.py
+│   └── secrets_scanner.py
+├── dynamic/
+│   ├── dynamic_runner.py
+│   ├── traffic_analyzer.py
+│   ├── traffic_interceptor.py
+│   ├── traffic_interceptor_ios.py
+│   ├── frida_hooks/
+│   │   ├── bypass_ssl.js
+│   │   ├── hook_crypto.js
+│   │   ├── network_logger.js
+│   │   ├── auth_bypass.js
+│   │   └── root_bypass.js
+│   ├── modules/
+│   │   ├── logcat_monitor.py
+│   │   └── storage_monitor.py
+├── exploits/
+│   └── exploit_runner.py
+├── report/
+│   └── report_generator.py
+├── reports/                           # Generated output reports
+├── utils/
+│   ├── logger.py
+│   ├── frida_helpers.py
+│   ├── file_utils.py
+│   └── paths.py
+└── requirements.txt

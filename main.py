@@ -84,26 +84,13 @@ def main():
     args = parser.parse_args()
 
     if args.static:
-        if args.apk:
-            apk.run_static_analysis(args.apk)
-        elif args.ipa:
-            ipa.run_static_analysis(args.ipa)
-        else:
-            logger.warning("You must specify either --apk or --ipa for static analysis.")
+        run_static_analysis(args)
     if args.dynamic:
-        if args.apk:
-            apk.run_dynamic_analysis(args.apk).start()
-        elif args.ipa:
-            ipa.run_dynamic_analysis(args.ipa).start()
-        else:
-            logger.warning("You must specify either --apk or --ipa for dynamic analysis.")
+        run_dynamic_analysis(args)
     if args.exploit:
-        if args.apk:
-            exp.exploit_apk(args.apk)
-        elif args.ipa:
-            exp.exploit_ipa(args.ipa)
-        else:
-            logger.warning("You must specify either --apk or --ipa for exploitation.")
+        run_exploit(args)
+    if args.report:
+        run_report(args)
 
 if __name__ == "__main__":
     main()

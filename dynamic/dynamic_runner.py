@@ -6,6 +6,8 @@ import subprocess
 from dynamic.traffic_interceptor import FridaTrafficInterceptor
 from dynamic.traffic_interceptor_ios import FridaTrafficInterceptorIOS
 from utils import logger, frida_helpers
+from dynamic.modules.logcat_monitor import LogcatMonitor
+from dynamic.modules.storage_monitor import StorageMonitor
 
 def check_device_connection():
     result = subprocess.check_output("adb devices", shell=True, text=True)
@@ -204,7 +206,11 @@ def start_dynamic_analysis(app_path):
         if not wait_for_ios_process(bundle_id):
             return
         
+        # Start Logcat Monitoring here
+        logcat_monitor = LogcatMonitor(app_package=app_identifier, output_dir="reports/")
+        logcat_monitor.start()
         interceptor = FridaTrafficInterceptorIOS(app_identifier)
+        device = interceptor.get_device()
 
     else:
         logger.error("Unsupported app format. Only APK supported.")
@@ -216,7 +222,9 @@ def start_dynamic_analysis(app_path):
     frida_scripts = [
         "dynamic/frida_hooks/bypass_ssl.js",
         "dynamic/frida_hooks/hook_crypt.js",
-        "dynamic/frida_hooks/network_logger.js"
+        "dynamic/frida_hooks/network_logger.js",
+        "dynamic/frida_hooks/auth_bypass.js",
+        "dynamic/frida_hooks/root_bypass.js"
     ]
 
     threads = []
@@ -230,6 +238,18 @@ def start_dynamic_analysis(app_path):
 
     for t in threads:
         t.join()
+
+    # Pull and Scan Storage here
+    storage_monitor = StorageMonitor(app_package=app_identifier, output_dir="reports/")
+    findings = storage_monitor.run()
+
+    if findings:
+        logger.info("Sensitive storage findings detected and stored.")
+    else:
+        logger.info("No major storage issues found.")
+
+    # Stop Logcat Monitoring
+    logcat_monitor.stop()
 
     logger.info("Cleaning up Frida hooks...")
     interceptor.stop_hook()

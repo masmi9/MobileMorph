@@ -4,6 +4,7 @@ import subprocess
 import re
 from utils import paths, file_utils, logger
 import xml.etree.ElementTree as ET
+import zipfile
 
 ### This will use apktool, jadx, semgrep, strings, and some regex to hunt for exported components WebView configs, weak crypto, etc.
 
@@ -134,6 +135,35 @@ def scan_smali_code(smali_dir):
                         if matches:
                             logger.logtext(f"Found dangerous pattern in {file_path}: {matches}")
 
+def scan_for_root_detection(smali_dir):
+    logger.info("Scanning smali files for root detection logic...")
+    root_detection_indicators = [
+        "isDeviceRooted",
+        "checkRoot",
+        "checkSuBinary",
+        "/system/app/Superuser.apk",
+        "com.noshufou.android.su",
+        "eu.chainfire.supersu",
+        "magisk",
+        r'\bsu\b'
+    ]
+    found_indicators = []
+    for root, _, files in os.walk(smali_dir):
+        for file in files:
+            if file.endswith('.smali'):
+                file_path = os.path.join(root, file)
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                    for indicator in root_detection_indicators:
+                        if re.search(indicator, content):
+                            found_indicators.append((file_path, indicator))
+    if found_indicators:
+        logger.warning("Potential Root Detection Code Found:")
+        for file_path, indicator in found_indicators:
+            logger.logtext(f" - {indicator} found in {file_path}")
+    else:
+        logger.info("No root detection indicators found in the smali code.")
+
 def scan_decompiled_code(java_dir):
     logger.info("Scanning Java files for potentially dangerous code...")
     # Define the semgrep command with the pattern to scan for risky code (like risky function calls, hardcoded credentials)
@@ -169,6 +199,7 @@ def run_static_analysis(apk_path):
 
     if os.path.exists(smali_dir):
         scan_smali_code(smali_dir)
+        scan_for_root_detection(smali_dir)
     elif os.path.exists(java_dir):
         scan_decompiled_code(java_dir)
     else:
