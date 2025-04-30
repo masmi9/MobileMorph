@@ -3,11 +3,13 @@ import sys
 import time
 import threading
 import subprocess
+import tempfile
 from dynamic.traffic_interceptor import FridaTrafficInterceptor
 from dynamic.traffic_interceptor_ios import FridaTrafficInterceptorIOS
 from utils import logger, frida_helpers
 from dynamic.modules.logcat_monitor import LogcatMonitor
 from dynamic.modules.storage_monitor import StorageMonitor
+from dynamic.hook_loader import load_hooks
 
 def check_device_connection():
     result = subprocess.check_output("adb devices", shell=True, text=True)
@@ -155,7 +157,7 @@ def run_frida_script(script_path, package_name):
         "frida", "-U", "-n", package_name, "-l", script_path, "--no-pause"
     ])
 
-def start_dynamic_analysis(app_path):
+def start_dynamic_analysis(app_path, hook_profile="minimal"):
     """Launch dynamic analysis and start traffic interception."""
     logger.info(f"Starting dynamic analysis for {app_path}...")
 
@@ -219,17 +221,20 @@ def start_dynamic_analysis(app_path):
     logger.info(f"Target identifier: {app_identifier}")
     interceptor.start_hook(device=device, timeout=30)
 
-    frida_scripts = [
-        "dynamic/frida_hooks/bypass_ssl.js",
-        "dynamic/frida_hooks/hook_crypt.js",
-        "dynamic/frida_hooks/network_logger.js",
-        "dynamic/frida_hooks/auth_bypass.js",
-        "dynamic/frida_hooks/root_bypass.js"
-    ]
+    # Populate with profile-based hooks
+    try:
+        frida_scripts = load_hooks(hook_profile)
+    except Exception as e:
+        logger.error(f"Failed to load hook profile: {e}")
+        return
 
     threads = []
-    for script in frida_scripts:
-        t = threading.Thread(target=run_frida_script, args=(script, package_name))
+    for name, content in frida_scripts:
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".js") as tmp:
+            tmp.write(content.code())
+            tmp_path = tmp.name
+        t = threading.Thread(target=run_frida_script, args=(tmp_path, app_identifier))
         t.start()
         threads.append(t)
 
@@ -257,10 +262,10 @@ def start_dynamic_analysis(app_path):
     logger.info("Dynamic analysis finished successfully!")
 
 # NEW: The class wrapper for dynamic analysis
-
 class DynamicAnalysisEngine:
-    def __init__(self, app_path):
+    def __init__(self, app_path, hook_profile="minimal"):
         self.app_path = app_path
+        self.hook_profile = hook_profile
 
     def start(self):
-        start_dynamic_analysis(self.app_path)
+        start_dynamic_analysis(self.app_path, self.hook_profile)

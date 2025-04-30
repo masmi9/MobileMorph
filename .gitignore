@@ -8,3 +8,4 @@ exploits/__pycache__
 actions-runner/
 .venv/
 PMPA/
+tools/frida-server

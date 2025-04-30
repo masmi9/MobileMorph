@@ -13,6 +13,7 @@ from utils import logger
 from report import report_generator
 from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
 import exploits.exploit_runner as exp
+from utils.emulator_manager import ensure_emulator_ready
 
 def run_static_analysis(args):
     downloads_folder = get_output_folder()
@@ -45,7 +46,7 @@ def run_static_analysis(args):
 
 def run_dynamic_analysis(args):
     if args.apk:
-        engine = DynamicAnalysisEngine(args.apk)
+        engine = DynamicAnalysisEngine(args.apk, hook_profile=args.profile)
         engine.start()
     elif args.ipa:
         logger.logtext("Dynamic analysis for IPA is not yet supported. Please provide an IPA.")
@@ -81,6 +82,8 @@ def main():
     parser.add_argument('--report', action='store_true', help='Generate a professional report')
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
+    parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis')
+    parser.add_argument('--setup-emulator', action='store_true', help='Prepare emulator with Frida snapshot')
     args = parser.parse_args()
 
     if args.static:
@@ -91,6 +94,9 @@ def main():
         run_exploit(args)
     if args.report:
         run_report(args)
+    if args.setup_emulator:
+        ensure_emulator_ready()
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()

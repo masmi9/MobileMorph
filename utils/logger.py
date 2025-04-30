@@ -10,3 +10,6 @@ def error(message):
 
 def logtext(message):
     print(f"[*] {message}")
+
+def pretty(message):
+    print(f"[✓] {message}")

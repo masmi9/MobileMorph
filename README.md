@@ -15,11 +15,13 @@
 ### Dynamic Analysis
 - Automated APK installation and app launch
 - Frida-based runtime hooking:
-  - `bypass_ssl.js`: Bypass SSL pinning
-  - `hook_crypto.js`: Hook cryptographic APIs
-  - `network_logger.js`: Log URL and network usage
-  - `auth_bypass.js`: Force login and bypass authentication
-  - `root_bypass.js`: Defeat root/jailbreak detection
+  - Use `--profile full` or `--profile minimal` to control which hooks are injected
+  - Available hooks:  
+    - `bypass_ssl.js`: Bypass SSL pinning
+    - `hook_crypto.js`: Hook cryptographic APIs
+    - `network_logger.js`: Log URL and network usage
+    - `auth_bypass.js`: Force login and bypass authentication
+    - `root_bypass.js`: Defeat root/jailbreak detection
 - Traffic interception:
   - Android: `traffic_interceptor.py`
   - iOS: `traffic_interceptor_ios.py`
@@ -30,6 +32,12 @@
 - Basic IDOR fuzzing
 - Token replay and login bypass attempts
 - Placeholder for expanded modules (JWT tampering, broken auth logic, etc.)
+
+### Emulator Automation (NEW)
+- Headless emulator provisioning via `--setup-emulator`
+- Automatically creates and configures Android Virtual Device (AVD)
+- Boots emulator with Frida preloaded
+- Saves snapshot (`frida_ready`) for instant reuse in future runs
 
 ---
 
@@ -44,6 +52,7 @@ MobileMorph/
 │   └── secrets_scanner.py
 ├── dynamic/
 │   ├── dynamic_runner.py
+│   ├── hook_loader.py                  # Loads Frida hook profiles
 │   ├── traffic_analyzer.py
 │   ├── traffic_interceptor.py
 │   ├── traffic_interceptor_ios.py
@@ -60,8 +69,11 @@ MobileMorph/
 │   └── exploit_runner.py
 ├── report/
 │   └── report_generator.py
+├── scripts/
+│   └── setup_emulator.sh
 ├── reports/                           # Generated output reports
 ├── utils/
+│   ├── emulator_manager.py            # Automates rooted emulator setup + snapshots
 │   ├── logger.py
 │   ├── frida_helpers.py
 │   ├── file_utils.py
@@ -82,9 +94,18 @@ python3 main.py --apk path/to/app.apk --static
 ```bash
 python3 main.py --apk path/to/app.apk --dynamic
 ```
+### Dynamic Analysis with Custom Frida Hook Profile
+```bash
+python3 main.py --apk path/to/app.apk --dynamic --profile full
+```
+  - Avaible profiles: minimal(default), full, ssl_only, crypto_focus, stealth 
 ### Exploitation (after dynamic)
 ```bash
 python3 main.py --apk path/to/app.apk --exploit
+```
+### Emulator Setup with Snapshot (Frida-Ready)
+```bash
+python3 main.py --setup-emulator
 ```
 
 ## Attack Surface Coverage
@@ -101,6 +122,7 @@ python3 main.py --apk path/to/app.apk --exploit
 - Android SDK + ADB
 - Frida CLI (pip install frida-tools)
 - jadx, aapt, ideviceinstaller, frida-server (for mobile runtime hooks)
+- Ensure ANDROID_HOME or ANDROID_SDK_ROOT is properly configured
 
 ## Install dependencies:
 ```bash
@@ -108,8 +130,6 @@ pip install -r requirements.txt
 ```
 
 ##⚙️ Roadmap
-- Automate emulator setup + snapshots
-- Add support for custom attack profiles (--profile full|minimal)
 - iOS dynamic support (experimental)
 - Integration with MobSF or Drozer-like module system
 - Add signature bypass via runtime patching
