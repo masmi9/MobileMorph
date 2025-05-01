@@ -20,10 +20,6 @@ on:
 jobs:
   mobilemorph-local-analysis-scan:
     runs-on: self-hosted
-    defaults:
-      run:
-        shell: bash
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
