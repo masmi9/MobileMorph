@@ -32,6 +32,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Static Analysis (APK/IPA)
+      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --static --apk "${{ github.event.inputs.app_path }}"
@@ -42,6 +43,7 @@ jobs:
         fi
 
     - name: Setup Testing Device (Android)
+      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --setup-emulator
@@ -52,6 +54,7 @@ jobs:
         fi
   
     - name: Run Dynamic Analysis (APK)
+      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --dynamic --apk "${{ github.event.inputs.app_path }}"
@@ -62,6 +65,7 @@ jobs:
         fi
 
     - name: Perform Vulnerability Exploitation (APK)
+      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --exploit --apk "${{ github.event.inputs.app_path }}"
