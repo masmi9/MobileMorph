@@ -37,12 +37,13 @@ def ensure_emulator_ready():
     if not sdk_root:
         raise EnvironmentError("ANDROID_HOME or ANDROID_SDK_ROOT must be set.")
 
-    avdmanager = os.path.join(sdk_root, "cmdline-tools/latest/bin/avdmanager")
+    avdmanager = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "avdmanager.bat")
     emulator = os.path.join(sdk_root, "emulator/emulator")
-    sdkmanager = os.path.join(sdk_root, "cmdline-tools/latest/bin/sdkmanager")
+    sdkmanager = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "sdkmanager.bat")
 
     # 1. Install system image
-    subprocess.run(f'yes | {sdkmanager} "{SYSTEM_IMAGE}"', shell=True, check=True)
+    subprocess.run([sdkmanager ,SYSTEM_IMAGE], check=True)
+    logger.warning("If prompted, accept licenses in the terminal.")
 
     # 2. Create AVD if needed
     avd_list = subprocess.check_output(f'{avdmanager} list avd', shell=True, text=True)

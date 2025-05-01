@@ -5,7 +5,7 @@ import threading
 import re
 import time
 import os
-from utils.logger import logger  # Use your existing logger
+from utils import logger  # Use your existing logger
 
 class LogcatMonitor:
     def __init__(self, app_package, output_dir="reports/"):

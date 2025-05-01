@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import time
-from utils.logger import logger  # Use your existing logger
+from utils import logger  # Use your existing logger
 
 class StorageMonitor:
     def __init__(self, app_package, output_dir="reports/"):

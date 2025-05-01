@@ -14,6 +14,7 @@ from report import report_generator
 from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
 import exploits.exploit_runner as exp
 from utils.emulator_manager import ensure_emulator_ready
+from report.report_generator import ReportGenerator
 
 def run_static_analysis(args):
     downloads_folder = get_output_folder()
@@ -28,8 +29,9 @@ def run_static_analysis(args):
             "Secrets Scan Results": secrets_result,
             "Static Analysis Logs": f"Decompiled APK and strings dumped at {strings_file}"
         }
-        report_generator.generate_report(base_name, "static", findings)
-    
+        report = ReportGenerator(base_name, downloads_folder, mode="static")
+        report.generate_static_report(findings=findings)
+
     elif args.ipa:
         base_name = ipa.run_static_analysis(args.ipa)
         strings_file = f"output/{os.path.basename(args.ipa).replace('.ipa', '')}_strings.txt"
@@ -39,7 +41,8 @@ def run_static_analysis(args):
             "Secrets Scan Results": secrets_result,
             "Static Analysis Logs": f"Decompiled IPA and strings dumped at {strings_file}"
         }
-        report_generator.generate_report(base_name, "static", findings)
+        report = ReportGenerator(base_name, downloads_folder, mode="static")
+        report.generate_static_report(findings=findings)
     
     else:
         logger.warning("Please specify either --apk or --ipa for static analysis.")
@@ -82,7 +85,7 @@ def main():
     parser.add_argument('--report', action='store_true', help='Generate a professional report')
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
-    parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis')
+    parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis (default: minimal, full, ssl_only, crypto_focus, stealth)')
     parser.add_argument('--setup-emulator', action='store_true', help='Prepare emulator with Frida snapshot')
     args = parser.parse_args()
 
