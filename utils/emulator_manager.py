@@ -1,9 +1,9 @@
 import subprocess
 import os
 import time
-import urllib.request
 import lzma
 import shutil
+import requests
 from utils import logger
 
 AVD_NAME = "mobilemorph_emulator"
@@ -24,7 +24,11 @@ def download_frida_server():
     os.makedirs(TOOLS_DIR, exist_ok=True)
 
     logger.logtext(f"Downloading {url}...")
-    urllib.request.urlretrieve(url, dest_xz)
+    response = requests.get(url, stream=True)
+    with open(dest_xz, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    
     logger.logtext("Extracting...")
     with lzma.open(dest_xz) as f_in, open(FRIDA_BINARY, "wb") as f_out:
         shutil.copyfileobj(f_in, f_out)

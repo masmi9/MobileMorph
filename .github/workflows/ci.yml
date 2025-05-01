@@ -31,7 +31,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run Static Analysis (APK)
+    - name: Run Static Analysis (APK/IPA)
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --static --apk "${{ github.event.inputs.app_path }}"
@@ -40,12 +40,31 @@ jobs:
         else
           echo "Unknown platform input!" && exit 1
         fi
+
+    - name: Setup Testing Device (Android)
+      run: |
+        if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
+          python main.py --setup-emulator
+        elif [[ "${{ github.event.inputs.platform }}" == "ios" ]]; then
+          echo "Still in development...come back later" && exit 1
+        else
+          echo "Still in development...come back later" && exit 1
+        fi
+  
     - name: Run Dynamic Analysis (APK)
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --dynamic --apk "${{ github.event.inputs.app_path }}"
         elif [[ "${{ github.event.inputs.platform }}" == "ios" ]]; then
           python main.py --dynamic --ipa "${{ github.event.inputs.app_path }}"
+        else
+          echo "Still in development...come back later" && exit 1
+        fi
+
+    - name: Perform Vulnerability Exploitation (APK)
+      run: |
+        if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
+          python main.py --exploit --apk "${{ github.event.inputs.app_path }}"
         else
           echo "Unknown platform input!" && exit 1
         fi

@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import subprocess
 # Add static analysis paths
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'static'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'dynamic'))
@@ -47,7 +48,24 @@ def run_static_analysis(args):
     else:
         logger.warning("Please specify either --apk or --ipa for static analysis.")
 
+def device_connected():
+    """Check if any Android device/emulator is connected."""
+    try:
+        output = subprocess.check_output(["adb", "devices"], text=True)
+        lines = [line for line in output.strip().splitlines() if "\tdevice" in line]
+        return len(lines) > 0
+    except Exception:
+        return False
+
 def run_dynamic_analysis(args):
+    if args.setup_emulator:
+        logger.logtext("Setting up emulator before starting dynamic analysis...")
+        ensure_emulator_ready()
+    else:
+        if not device_connected():
+            logger.error("No Android device/emulator detected. Use --setup-emulator or connect a device manually.")
+            return
+    
     if args.apk:
         engine = DynamicAnalysisEngine(args.apk, hook_profile=args.profile)
         engine.start()
