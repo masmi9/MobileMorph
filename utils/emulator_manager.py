@@ -4,7 +4,7 @@ import time
 import lzma
 import shutil
 import requests
-import urllib.request
+import platform
 from utils import logger
 
 AVD_NAME = "mobilemorph_emulator"
@@ -60,8 +60,12 @@ def ensure_emulator_ready(apk_path):
         ARCH = "x86"
     elif 'arm64-v8a' in native_arch:
         logger.logtext("APK requires ARM64 architecture.")
-        SYSTEM_IMAGE = "system-images;android-29;google_apis;arm64-v8a"
-        ARCH = "arm64"
+        if platform.system() == "Windows":
+            logger.warning("Forcing x86 system image because Windows host can't run arm64 emulators.")
+            SYSTEM_IMAGE = "system-images;android-30;google_apis;x86"
+        else:
+            SYSTEM_IMAGE = "system-images;android-29;google_apis;arm64-v8a"
+            ARCH = "arm64"
     else:
         logger.warning("Could not determine APK architecture. Defaulting to x86.")
         SYSTEM_IMAGE = "system-images;android-30;google_apis;x86"
