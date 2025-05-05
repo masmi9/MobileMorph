@@ -54,14 +54,14 @@ def ensure_emulator_ready(apk_path):
     global SYSTEM_IMAGE
     global ARCH
 
-    if 'arm64-v8a' in native_arch:
-        logger.logtext("APK requires ARM64 architecture.")
-        SYSTEM_IMAGE = "system-images;android-29;google_apis;arm64-v8a"
-        ARCH = "arm64"
-    elif 'x86_64' in native_arch or 'x86' in native_arch:
+    if 'x86_64' in native_arch or 'x86' in native_arch:
         logger.logtext("APK supports x86/x86_64")
         SYSTEM_IMAGE = "system-images;android-27;google_apis;x86"
         ARCH = "x86"
+    elif 'arm64-v8a' in native_arch:
+        logger.logtext("APK requires ARM64 architecture.")
+        SYSTEM_IMAGE = "system-images;android-29;google_apis;arm64-v8a"
+        ARCH = "arm64"
     else:
         logger.warning("Could not determine APK architecture. Defaulting to x86.")
         SYSTEM_IMAGE = "system-images;android-30;google_apis;x86"
