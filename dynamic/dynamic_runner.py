@@ -46,8 +46,14 @@ def ensure_frida_server_running():
         logger.info("Setting executable permissions...")
         subprocess.run(["adb", "shell", "chmod", "755", remote_frida_path], check=True)
 
+        # Could replace with code below -- Linux
+        #logger.info("Starting frida-server with non-blocking exec...")
+        #subprocess.run(["adb", "shell", "su", "-c", f"'{remote_frida_path} &'"], check=False)
+        #time.sleep(3)  # Give frida-server a moment to start
+        # Better --> Windows runner for starting frida-server
         logger.info("Starting frida-server...")
-        subprocess.run(["adb", "shell", f"nohup {remote_frida_path} &"], shell=True)
+        subprocess.Popen(["adb", "shell", remote_frida_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(3)
 
         logger.info("Frida-server started successfully.")
         time.sleep(5)
