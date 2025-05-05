@@ -57,17 +57,17 @@ def device_connected():
     except Exception:
         return False
 
-def run_dynamic_analysis(args):
+def run_dynamic_analysis(args, selected_profile="minimal"):
     if args.setup_emulator:
         logger.logtext("Setting up emulator before starting dynamic analysis...")
-        ensure_emulator_ready()
+        ensure_emulator_ready(args.apk)   # Corrected: pass apk path
     else:
         if not device_connected():
             logger.error("No Android device/emulator detected. Use --setup-emulator or connect a device manually.")
             return
     
     if args.apk:
-        engine = DynamicAnalysisEngine(args.apk, hook_profile=args.profile)
+        engine = DynamicAnalysisEngine(args.apk, hook_profile=selected_profile)
         engine.start()
     elif args.ipa:
         logger.logtext("Dynamic analysis for IPA is not yet supported. Please provide an IPA.")
@@ -94,7 +94,6 @@ def run_report(args):
     # You can optionally pass findings=None here if you want simpler mode
     report_generator.generate_report(base_name, "full", findings=None)
 
-
 def main():
     parser = argparse.ArgumentParser(description="MobileMorph - Mobile Pentesting Framework")
     parser.add_argument('--static', action='store_true', help='Run static analysis')
@@ -104,19 +103,23 @@ def main():
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
     parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis (default: minimal, full, ssl_only, crypto_focus, stealth)')
+    parser.add_argument('--proxy', action='store_true', help='Force app traffic through proxy via Frida hooks')
     parser.add_argument('--setup-emulator', action='store_true', help='Prepare emulator with Frida snapshot')
     args = parser.parse_args()
 
     if args.static:
         run_static_analysis(args)
     if args.dynamic:
-        run_dynamic_analysis(args)
+        # ProxyMode overrides profile
+        selected_profile = "proxy" if args.proxy else args.profile
+        run_dynamic_analysis(args, selected_profile)
     if args.exploit:
         run_exploit(args)
     if args.report:
         run_report(args)
-    if args.setup_emulator:
-        ensure_emulator_ready()
+    # Only run setup-emulator directly if --dynamic is NOT specified
+    if args.setup_emulator and not args.dynamic:
+        ensure_emulator_ready(args.apk)
         sys.exit(0)
 
 if __name__ == "__main__":
