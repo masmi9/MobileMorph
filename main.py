@@ -10,7 +10,7 @@ import static.apk_static_analysis as apk
 import static.ipa_static_analysis as ipa
 import static.secrets_scanner as secrets
 from utils.paths import get_output_folder 
-from utils import logger
+from utils import logger, frida_helpers
 from report import report_generator
 from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
 import exploits.exploit_runner as exp
@@ -58,6 +58,10 @@ def device_connected():
         return False
 
 def run_dynamic_analysis(args, selected_profile="minimal"):
+    if not frida_helpers.FRIDA_AVAILABLE:
+        logger.error("Frida is not available or failed to import. Dynamic analysis cannot proceed.")
+        return
+
     if args.setup_emulator:
         logger.logtext("Setting up emulator before starting dynamic analysis...")
         ensure_emulator_ready(args.apk)   # Corrected: pass apk path
@@ -121,6 +125,8 @@ def main():
     if args.setup_emulator and not args.dynamic:
         ensure_emulator_ready(args.apk)
         sys.exit(0)
+    if not frida_helpers.FRIDA_AVAILABLE and (args.dynamic or args.exploit):
+        logger.warning("Frida is not available. Dynamic analysis and exploitation will be skipped.")
 
 if __name__ == "__main__":
     main()
