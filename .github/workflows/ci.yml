@@ -41,7 +41,7 @@ jobs:
 
     - name: Setup Testing Device (Android)
       if: ${{ github.event.inputs.platform == 'android' }}
-      run: python main.py --setup-emulator
+      run: python main.py --setup-emulator --apk "${{ github.event.inputs.app_path}}"
 
     - name: Run Dynamic Analysis (Android)
       if: ${{ github.event.inputs.platform == 'android' }}
