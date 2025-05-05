@@ -3,18 +3,22 @@ import sys
 import time
 import threading
 import subprocess
+import tempfile
+from pathlib import Path  # ✅ Added for Path usage
 from dynamic.traffic_interceptor import FridaTrafficInterceptor
 from dynamic.traffic_interceptor_ios import FridaTrafficInterceptorIOS
 from utils import logger, frida_helpers
 from dynamic.modules.logcat_monitor import LogcatMonitor
 from dynamic.modules.storage_monitor import StorageMonitor
+from dynamic.hook_loader import load_hooks
+from dynamic.traffic_analyzer import TrafficAnalyzer
 
 def check_device_connection():
     result = subprocess.check_output("adb devices", shell=True, text=True)
     devices = [line for line in result.splitlines() if "\tdevice" in line]
     if not devices:
         logger.error("No devices/emulators connected. Please connect a device and try again.")
-        return None     # No Android device
+        return None
     logger.info("Detected Android device.")
     return "android"
 
@@ -33,31 +37,26 @@ def ensure_frida_server_running():
 
         logger.warning("Frida-server not running. Attempting to start it...")
 
-        # Push frida-server binary if not already pushed
-        local_frida_path = "tools/frida-server"  # Adjust path where you store frida-server
+        local_frida_path = "tools/frida-server"
         remote_frida_path = "/data/local/tmp/frida-server"
 
         logger.info("Pushing frida-server to device...")
         subprocess.run(["adb", "push", local_frida_path, remote_frida_path], check=True)
 
-        # Set executable permissions
         logger.info("Setting executable permissions...")
         subprocess.run(["adb", "shell", "chmod", "755", remote_frida_path], check=True)
 
-        # Start frida-server in background
         logger.info("Starting frida-server...")
-        subprocess.run(["adb", "shell", remote_frida_path, "&"], shell=True)
+        subprocess.run(["adb", "shell", f"nohup {remote_frida_path} &"], shell=True)
 
         logger.info("Frida-server started successfully.")
-        
-        # Give it a moment to boot
         time.sleep(5)
+
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to start frida-server: {e}")
         sys.exit(1)
 
 def get_package_name_from_apk(apk_path):
-    """Extracts the package name from APK using aapt."""
     try:
         output = subprocess.check_output(["aapt", "dump", "badging", apk_path], shell=True, text=True)
         for line in output.splitlines():
@@ -71,7 +70,6 @@ def get_package_name_from_apk(apk_path):
     return None
 
 def get_main_activity(apk_path):
-    """Extracts the main activity from APK using aapt."""
     try:
         output = subprocess.check_output(["aapt", "dump", "badging", apk_path], shell=True, text=True)
         for line in output.splitlines():
@@ -84,29 +82,9 @@ def get_main_activity(apk_path):
         logger.error(f"Failed to extract main activity: {e}")
     return None
 
-def get_bundle_id_from_ipa(ipa_path):
-    """Extracts bundle id form .ipa (Info.plist inside Payload)."""
-    try:
-        file = "Info.plist"
-        subprocess.run(["unzip", "-o", ipa_path, "-d", "temp_ipa_extract"], check=True)
-        for root, _, files in os.walk("temp_ipa_extract/Payload"):
-            for file in files:
-                plist_path = os.path.join(root, "Info.plist")
-                output = subprocess.check_output(["plutil", "-extract", "CFBundleIdentifier", "xml1", "-o", "-", plist_path], text=True)
-                return output.strip().split(">")[1].split("<")[0]
-    except Exception as e:
-        logger.error(f"Failed to extract bundle id: {e}")
-    return None
-
 def uninstall_app_android(package_name):
-    """Uninstalls the app if it's already installed."""
     logger.info(f"Uninstalling existing app {package_name} (if present)...")
     subprocess.run(["adb", "uninstall", package_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-def uninstall_app_ios(bundle_id):
-    """Uninstalls the app if it's already installed."""
-    logger.info(f"Uninstalling existing app {bundle_id} (if present)...")
-    subprocess.run(["ideviceinstaller", "-U", bundle_id])
 
 def launch_app_android(package_name, main_activity):
     logger.info(f"Launching {package_name}/{main_activity}...")
@@ -116,12 +94,7 @@ def launch_app_android(package_name, main_activity):
     except subprocess.CalledProcessError:
         logger.error("Failed to launch app.")
 
-def launch_app_ios(bundle_id):
-    logger.info(f"Launching iOS app {bundle_id}...")
-    subprocess.run(["idevicedebug", "run", bundle_id])
-
-def wait_for_android_process(package_name, timeout=10):
-    """Waits for the app process to start."""
+def wait_for_android_process(package_name, timeout=30):
     logger.info(f"Waiting for process {package_name} to start...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -133,43 +106,27 @@ def wait_for_android_process(package_name, timeout=10):
     logger.error(f"Timeout: {package_name} process not found.")
     return False
 
-def wait_for_ios_process(bundle_id, timeout=10):
-    """Waits for the app process to start."""
-    logger.info(f"Waiting for process {bundle_id} to start...")
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            result = subprocess.run(["frida-ps", "-Uai"], text=True)
-            if bundle_id in result:
-                logger.info(f"iOS App {bundle_id} is running.")
-                return True
-        except Exception:
-            pass
-        time.sleep(1)
-    logger.error(f"Timeout: {bundle_id} process not found.")
-    return False
-
 def run_frida_script(script_path, package_name):
     logger.logtext(f"Running Frida script: {script_path}")
-    subprocess.run([
-        "frida", "-U", "-n", package_name, "-l", script_path, "--no-pause"
-    ])
+    subprocess.run(["frida", "-U", "-n", package_name, "-l", script_path, "--no-pause"])
 
-def start_dynamic_analysis(app_path):
-    """Launch dynamic analysis and start traffic interception."""
+def start_dynamic_analysis(app_path, hook_profile="minimal"):
     logger.info(f"Starting dynamic analysis for {app_path}...")
 
     device_type = check_device_connection()
     if not device_type:
         return
 
+    subprocess.run(["adb", "reverse", "tcp:8080", "tcp:8080"])
+    logger.info("Port 8080 reversed for emulator traffic to host.")
+
     ensure_frida_server_running()
 
     if not frida_helpers.check_frida_version_match():
         logger.error("Aborting dynamic analysis due to the Frida version mismatch.")
         return
-    
-    app_identifier = None   # Common variable for both apk and ipa
+
+    app_identifier = None
 
     if app_path.endswith(".apk") and device_type == "android":
         package_name = get_package_name_from_apk(app_path)
@@ -177,59 +134,42 @@ def start_dynamic_analysis(app_path):
         if not package_name or not main_activity:
             logger.error("Failed to extract package name - aborting dynamic analysis.")
             return
-        
+
         app_identifier = package_name
 
         uninstall_app_android(package_name)
-        subprocess.run(["adb", "install", app_path])
+        subprocess.run(["adb", "install", app_path], check=True)
         launch_app_android(package_name, main_activity)
 
         if not wait_for_android_process(package_name):
             return
-        
-        interceptor = FridaTrafficInterceptor(app_identifier)
-        device = interceptor.get_device()
 
-    elif app_path.endswith(".ipa") and device_type == "ios":
-        bundle_id = get_bundle_id_from_ipa(app_path)
-
-        if not bundle_id:
-            logger.error("Failed to extract bundle id.")
-            return
-        
-        app_identifier = bundle_id
-        
-        uninstall_app_ios(bundle_id)
-        subprocess.run(["ideviceinstaller", "-i", app_path])
-        launch_app_ios(bundle_id)
-
-        if not wait_for_ios_process(bundle_id):
-            return
-        
-        # Start Logcat Monitoring here
-        logcat_monitor = LogcatMonitor(app_package=app_identifier, output_dir="reports/")
-        logcat_monitor.start()
-        interceptor = FridaTrafficInterceptorIOS(app_identifier)
+        interceptor = FridaTrafficInterceptor(app_identifier, output_dir="reports/")
         device = interceptor.get_device()
 
     else:
-        logger.error("Unsupported app format. Only APK supported.")
+        logger.error("Unsupported app format. Only APK supported for dynamic analysis.")
         return
 
     logger.info(f"Target identifier: {app_identifier}")
     interceptor.start_hook(device=device, timeout=30)
 
-    frida_scripts = [
-        "dynamic/frida_hooks/bypass_ssl.js",
-        "dynamic/frida_hooks/hook_crypt.js",
-        "dynamic/frida_hooks/network_logger.js",
-        "dynamic/frida_hooks/auth_bypass.js",
-        "dynamic/frida_hooks/root_bypass.js"
-    ]
+    try:
+        frida_scripts = load_hooks(hook_profile)
+    except Exception as e:
+        logger.error(f"Failed to load hook profile: {e}")
+        return
 
     threads = []
-    for script in frida_scripts:
-        t = threading.Thread(target=run_frida_script, args=(script, package_name))
+    tmp_paths = []
+
+    for name, content in frida_scripts:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".js") as tmp:
+            tmp.write(content.code())
+            tmp_path = tmp.name
+            tmp_paths.append(tmp_path)
+
+        t = threading.Thread(target=run_frida_script, args=(tmp_path, app_identifier))
         t.start()
         threads.append(t)
 
@@ -239,7 +179,10 @@ def start_dynamic_analysis(app_path):
     for t in threads:
         t.join()
 
-    # Pull and Scan Storage here
+    for tmp_path in tmp_paths:
+        os.unlink(tmp_path)
+
+    # STORAGE MONITOR
     storage_monitor = StorageMonitor(app_package=app_identifier, output_dir="reports/")
     findings = storage_monitor.run()
 
@@ -248,19 +191,28 @@ def start_dynamic_analysis(app_path):
     else:
         logger.info("No major storage issues found.")
 
-    # Stop Logcat Monitoring
-    logcat_monitor.stop()
+    # TRAFFIC ANALYZER
+    logger.info("Analyzing captured traffic for sensitive data patterns...")
+    traffic_log = os.path.join("reports", f"{app_identifier}_traffic_log.txt")
+    analyzer = TrafficAnalyzer(traffic_log)
+    sensitive_artifacts = analyzer.analyze()
+
+    if sensitive_artifacts:
+        analyzer.save_findings(os.path.join("reports", f"{app_identifier}_traffic_findings.txt"))
+
+    # LOGCAT MONITOR CLEANUP
+    if 'logcat_monitor' in locals():
+        LogcatMonitor.stop()
 
     logger.info("Cleaning up Frida hooks...")
     interceptor.stop_hook()
 
     logger.info("Dynamic analysis finished successfully!")
 
-# NEW: The class wrapper for dynamic analysis
-
 class DynamicAnalysisEngine:
-    def __init__(self, app_path):
+    def __init__(self, app_path, hook_profile="minimal"):
         self.app_path = app_path
+        self.hook_profile = hook_profile
 
     def start(self):
-        start_dynamic_analysis(self.app_path)
+        start_dynamic_analysis(self.app_path, self.hook_profile)

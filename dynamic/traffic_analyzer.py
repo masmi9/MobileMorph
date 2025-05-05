@@ -1,5 +1,6 @@
 import re
 import os
+import requests
 from utils import logger
 
 class TrafficAnalyzer:
@@ -38,6 +39,16 @@ class TrafficAnalyzer:
             logger.info("[*] No sensitive data patterns detected in captured traffic.")
 
         return findings
+    
+    def replay_request_with_payload(self, original_request, payload):
+        modified_request = original_request.replace("PLACEHOLDER", payload)
+        try:
+            response = requests.post(original_request.url, data=modified_request)
+            return response.status_code, response.text
+        except Exception as e:
+            logger.error(f"Replay failed: {e}")
+            return None, None
+
 
     def save_findings(self, output_file):
         findings = self.analyze()

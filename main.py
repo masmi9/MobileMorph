@@ -1,6 +1,7 @@
 import argparse
 import sys
 import os
+import subprocess
 # Add static analysis paths
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'static'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'dynamic'))
@@ -13,6 +14,8 @@ from utils import logger
 from report import report_generator
 from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
 import exploits.exploit_runner as exp
+from utils.emulator_manager import ensure_emulator_ready
+from report.report_generator import ReportGenerator
 
 def run_static_analysis(args):
     downloads_folder = get_output_folder()
@@ -27,8 +30,9 @@ def run_static_analysis(args):
             "Secrets Scan Results": secrets_result,
             "Static Analysis Logs": f"Decompiled APK and strings dumped at {strings_file}"
         }
-        report_generator.generate_report(base_name, "static", findings)
-    
+        report = ReportGenerator(base_name, downloads_folder, mode="static")
+        report.generate_static_report(findings=findings)
+
     elif args.ipa:
         base_name = ipa.run_static_analysis(args.ipa)
         strings_file = f"output/{os.path.basename(args.ipa).replace('.ipa', '')}_strings.txt"
@@ -38,14 +42,32 @@ def run_static_analysis(args):
             "Secrets Scan Results": secrets_result,
             "Static Analysis Logs": f"Decompiled IPA and strings dumped at {strings_file}"
         }
-        report_generator.generate_report(base_name, "static", findings)
+        report = ReportGenerator(base_name, downloads_folder, mode="static")
+        report.generate_static_report(findings=findings)
     
     else:
         logger.warning("Please specify either --apk or --ipa for static analysis.")
 
-def run_dynamic_analysis(args):
+def device_connected():
+    """Check if any Android device/emulator is connected."""
+    try:
+        output = subprocess.check_output(["adb", "devices"], text=True)
+        lines = [line for line in output.strip().splitlines() if "\tdevice" in line]
+        return len(lines) > 0
+    except Exception:
+        return False
+
+def run_dynamic_analysis(args, selected_profile="minimal"):
+    if args.setup_emulator:
+        logger.logtext("Setting up emulator before starting dynamic analysis...")
+        ensure_emulator_ready(args.apk)   # Corrected: pass apk path
+    else:
+        if not device_connected():
+            logger.error("No Android device/emulator detected. Use --setup-emulator or connect a device manually.")
+            return
+    
     if args.apk:
-        engine = DynamicAnalysisEngine(args.apk)
+        engine = DynamicAnalysisEngine(args.apk, hook_profile=selected_profile)
         engine.start()
     elif args.ipa:
         logger.logtext("Dynamic analysis for IPA is not yet supported. Please provide an IPA.")
@@ -72,7 +94,6 @@ def run_report(args):
     # You can optionally pass findings=None here if you want simpler mode
     report_generator.generate_report(base_name, "full", findings=None)
 
-
 def main():
     parser = argparse.ArgumentParser(description="MobileMorph - Mobile Pentesting Framework")
     parser.add_argument('--static', action='store_true', help='Run static analysis')
@@ -81,16 +102,25 @@ def main():
     parser.add_argument('--report', action='store_true', help='Generate a professional report')
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
+    parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis (default: minimal, full, ssl_only, crypto_focus, stealth)')
+    parser.add_argument('--proxy', action='store_true', help='Force app traffic through proxy via Frida hooks')
+    parser.add_argument('--setup-emulator', action='store_true', help='Prepare emulator with Frida snapshot')
     args = parser.parse_args()
 
     if args.static:
         run_static_analysis(args)
     if args.dynamic:
-        run_dynamic_analysis(args)
+        # ProxyMode overrides profile
+        selected_profile = "proxy" if args.proxy else args.profile
+        run_dynamic_analysis(args, selected_profile)
     if args.exploit:
         run_exploit(args)
     if args.report:
         run_report(args)
+    # Only run setup-emulator directly if --dynamic is NOT specified
+    if args.setup_emulator and not args.dynamic:
+        ensure_emulator_ready(args.apk)
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()

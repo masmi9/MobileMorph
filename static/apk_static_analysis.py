@@ -204,6 +204,8 @@ def run_static_analysis(apk_path):
         scan_decompiled_code(java_dir)
     else:
         logger.warning("No smali or Java code found after decompilation.")
+    
+    return base_name
 
 if __name__ == "__main__":
     run_static_analysis(sys.argv[1])

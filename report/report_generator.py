@@ -3,13 +3,14 @@ import datetime
 from utils import logger
 
 class ReportGenerator:
-    def __init__(self, app_name, output_dir, mode="static"):
+    def __init__(self, app_name, output_dir, mode="static", findings=None):
         self.app_name = app_name
         self.output_dir = output_dir
         self.mode = mode
+        self.findings = findings or {}
         self.report_file = os.path.join(output_dir, f"{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_{app_name}_report.md")
 
-    def generate_static_report(self):
+    def generate_static_report(self, findings=None):
         logger.info("Generating static analysis report...")
         manifest_results = os.path.join(self.output_dir, f"{self.app_name}_manifest_results.txt")
         strings_results = os.path.join(self.output_dir, f"{self.app_name}_strings.txt")
@@ -17,6 +18,12 @@ class ReportGenerator:
         with open(self.report_file, "w") as report:
             report.write(f"# Static Analysis Report for {self.app_name}\n\n")
 
+            # Write findings summary if available
+            if findings:
+                report.write("## Findings Summary\n\n")
+                for key, value in self.findings.items():
+                    report.write(f"**{key}**:\n{value}\n\n")
+                                 
             if os.path.exists(manifest_results):
                 report.write("## Exported Components & Permissions\n\n")
                 with open(manifest_results, "r") as f:
