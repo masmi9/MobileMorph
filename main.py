@@ -12,10 +12,11 @@ import static.secrets_scanner as secrets
 from utils.paths import get_output_folder 
 from utils import logger, frida_helpers
 from report import report_generator
-from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
+from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis, get_package_name_from_apk
 import exploits.exploit_runner as exp
 from utils.emulator_manager import ensure_emulator_ready
 from report.report_generator import ReportGenerator
+from static.apk_static_analysis import get_exported_components, get_webview_components
 
 def run_static_analysis(args):
     downloads_folder = get_output_folder()
@@ -79,12 +80,33 @@ def run_dynamic_analysis(args, selected_profile="minimal"):
         logger.warning("Please specify either --apk or --ipa for dynamic analysis.")
 
 def run_exploit(args):
+    downloads_folder = get_output_folder()
+
     if args.apk:
-        exp.exploit_apk(args.apk)
+        package_name = get_package_name_from_apk(args.apk)
+
+        if not package_name:
+            logger.error("Failed to extract package name from APK.")
+            return
+
+        # This assumes static analysis already dumped strings
+        strings_file = os.path.join(downloads_folder, f"{os.path.basename(args.apk).replace('.apk', '')}_strings.txt")
+
+        # Extract exported components and WebView components
+        exported_components = get_exported_components(args.apk)
+        webview_components = get_webview_components(args.apk)
+
+        if not os.path.exists(strings_file):
+            logger.warning(f"Strings file not found: {strings_file}. Run static analysis first.")
+            strings_file = ""  # Still allow run_exploit to proceed without credentials check
+
+        exp.run_exploit(package_name, strings_file, exported_components, webview_components)
+
     elif args.ipa:
-        exp.exploit_ipa(args.ipa)
+        logger.warning("Exploitation for IPA is not implemented yet.")
     else:
         logger.warning("Please specify either --apk or --ipa for exploitation.")
+
 
 def run_report(args):
     downloads_folder = get_output_folder()

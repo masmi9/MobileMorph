@@ -113,6 +113,31 @@ def scan_manifest(manifest_path):
             else:
                 logger.info("No permissions found in AndroidManifest.xml")
 
+def get_exported_components(apk_path):
+    exported = []
+    try:
+        output = subprocess.check_output(["aapt", "dump", "xmltree", apk_path, "AndroidManifest.xml"], text=True, shell=True)
+        for line in output.splitlines():
+            if "E: activity" in line or "E: service" in line:
+                if 'android:exported' in line:
+                    exported.append(line.strip())
+    except Exception as e:
+        print(f"Error parsing exported components: {e}")
+    return exported  # Just return the list. If empty, it's fine.
+
+def get_webview_components(apk_path):
+    components = []
+    try:
+        output = subprocess.check_output(["aapt", "dump", "xmltree", apk_path, "AndroidManifest.xml"], text=True, shell=True)
+        for line in output.splitlines():
+            if "WebView" in line:
+                components.append(line.strip())
+    except Exception as e:
+        print(f"Error parsing WebView components: {e}")
+    return components  # Just return the list.
+
+
+
 def scan_smali_code(smali_dir):
     logger.info("Scanning smali files for potential dangerous code...")
     # Define smali patterns to look for in code (e.g., dangerous API calls)
