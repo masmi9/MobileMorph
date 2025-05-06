@@ -31,7 +31,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     - name: Run Static Analysis (APK/IPA)
-      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --static --apk "${{ github.event.inputs.app_path }}"
@@ -42,7 +41,6 @@ jobs:
         fi
 
     - name: Setup Testing Device (Android)
-      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --setup-emulator --apk "${{ github.event.inputs.app_path }}"
@@ -53,7 +51,6 @@ jobs:
         fi
 
     - name: Verify Frida installation and device connection
-      shell: bash
       run: |
         echo "[*] Checking Frida version and devices..."
         python -c "import frida; print('Frida version:', frida.__version__)"
@@ -62,7 +59,6 @@ jobs:
         frida-ls-devices || true
 
     - name: Run Dynamic Analysis (APK)
-      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --dynamic --apk "${{ github.event.inputs.app_path }}"
@@ -73,7 +69,6 @@ jobs:
         fi
 
     - name: Perform Vulnerability Exploitation (APK)
-      shell: bash
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
           python main.py --exploit --apk "${{ github.event.inputs.app_path }}"
