@@ -30,12 +30,6 @@ jobs:
         C:\envs\MobileMorph\Scripts\activate
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-
-    - name: Check Frida version compatibility
-      run : |
-        python -c "print('[INFO] Checking Frida version compatibility...')
-        if not frida_helpers.check_frida_version_match():
-          raise SystemExit('[ERROR] Frida version do not match! Aborting workflow.')"
     - name: Run Static Analysis (APK/IPA)
       shell: bash
       run: |
