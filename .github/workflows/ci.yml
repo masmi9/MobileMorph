@@ -71,7 +71,7 @@ jobs:
     - name: Perform Vulnerability Exploitation (APK)
       run: |
         if [[ "${{ github.event.inputs.platform }}" == "android" ]]; then
-          python main.py --exploit --apk "${{ github.event.inputs.app_path }}"
+          python main.py --apk "${{ github.event.inputs.app_path }}" --exploit
         else
           echo "Unknown platform input!" && exit 1
         fi
