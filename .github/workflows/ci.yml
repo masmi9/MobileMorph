@@ -25,13 +25,22 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install dependencies
-      shell: bash
+      shell: pwsh
       run: |
         python -m venv env
-        source env/Scripts/activate || source env/bin/activate
+        .\env\Scripts\Activate.ps1
         python -m pip install --upgrade pip
         pip install --no-cache-dir -r requirements.txt
 
+    - name: Check Frida version compatibility
+      shell: pwsh
+      run : |
+        python -c "
+        from utils import frida_helpers;
+        print('[INFO] Checking Frida version compatibility...');
+        if not frida_helpers.check_frida_version_match():
+          raise SystemExit('[ERROR] Frida versions do not match! Aborting workflow.');
+        "
     - name: Run Static Analysis (APK/IPA)
       shell: bash
       run: |

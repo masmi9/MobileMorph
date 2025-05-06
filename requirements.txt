@@ -1,8 +1,8 @@
-frida==16.1.11
-frida-tools==12.3.3
-mitmproxy==10.1.6
 androguard==3.3.5
-lxml==5.1.0
-pyyaml==6.0.1
-cryptography==42.0.5
+frida==16.2.2
+frida-tools==12.3.0
+mitmproxy==10.1.6
+apkutils2==1.0.0
+pycryptodome==3.20.0
+colorama==0.4.6
 requests==2.31.0
