@@ -4,7 +4,8 @@ import time
 import threading
 import subprocess
 import tempfile
-from pathlib import Path  # ✅ Added for Path usage
+import frida
+from pathlib import Path
 from dynamic.traffic_interceptor import FridaTrafficInterceptor
 from dynamic.traffic_interceptor_ios import FridaTrafficInterceptorIOS
 from utils import logger, frida_helpers
@@ -12,6 +13,12 @@ from dynamic.modules.logcat_monitor import LogcatMonitor
 from dynamic.modules.storage_monitor import StorageMonitor
 from dynamic.hook_loader import load_hooks
 from dynamic.traffic_analyzer import TrafficAnalyzer
+
+FRIDA_AVAILABLE = frida_helpers.FRIDA_AVAILABLE
+try:
+    FRIDA_AVAILABLE = True
+except:
+    FRIDA_AVAILABLE = False
 
 def check_device_connection():
     result = subprocess.check_output("adb devices", shell=True, text=True)
@@ -46,8 +53,14 @@ def ensure_frida_server_running():
         logger.info("Setting executable permissions...")
         subprocess.run(["adb", "shell", "chmod", "755", remote_frida_path], check=True)
 
+        # Could replace with code below -- Linux
+        #logger.info("Starting frida-server with non-blocking exec...")
+        #subprocess.run(["adb", "shell", "su", "-c", f"'{remote_frida_path} &'"], check=False)
+        #time.sleep(3)  # Give frida-server a moment to start
+        # Better --> Windows runner for starting frida-server
         logger.info("Starting frida-server...")
-        subprocess.run(["adb", "shell", f"nohup {remote_frida_path} &"], shell=True)
+        subprocess.Popen(["adb", "shell", remote_frida_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(3)
 
         logger.info("Frida-server started successfully.")
         time.sleep(5)
@@ -120,6 +133,10 @@ def start_dynamic_analysis(app_path, hook_profile="minimal"):
     subprocess.run(["adb", "reverse", "tcp:8080", "tcp:8080"])
     logger.info("Port 8080 reversed for emulator traffic to host.")
 
+    if not FRIDA_AVAILABLE:
+        logger.error("Frida is not available or failed to import. Skipping dynamic analysis.")
+        return
+    
     ensure_frida_server_running()
 
     if not frida_helpers.check_frida_version_match():

@@ -1,21 +1,8 @@
-# == Core Static & Dynamic Analysis ==
-frida-tools==12.3.0
-frida==16.5.9
-mitmproxy==10.3.0
 androguard==3.3.5
-
-# == Logging & Utilities ==
+frida==16.2.2
+frida-tools==12.3.0
+mitmproxy==10.1.6
+apkutils2==1.0.0
+pycryptodome==3.20.0
 colorama==0.4.6
 requests==2.31.0
-rich==13.7.0
-pathlib2==2.3.7.post1
-
-# == XML Parsing for APK Analysis ==
-lxml==4.9.4
-
-# == Optional (Stage 3 iOS Support) ==
-biplist==1.0.3
-pyobjc==10.2 ; platform_system=="Darwin"
-
-# == Future Consideration (Static SAST) ==
-# semgrep==1.65.0
