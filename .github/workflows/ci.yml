@@ -32,10 +32,10 @@ jobs:
         pip install -r requirements.txt
 
     - name: Check Frida version compatibility
-      shell: bash
       run : |
-        python -m utils.frida_helpers_check
-
+        python -c "print('[INFO] Checking Frida version compatibility...')
+        if not frida_helpers.check_frida_version_match():
+          raise SystemExit('[ERROR] Frida version do not match! Aborting workflow.')"
     - name: Run Static Analysis (APK/IPA)
       shell: bash
       run: |
