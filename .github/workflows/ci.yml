@@ -25,20 +25,15 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install dependencies
-      shell: pwsh
+      shell: bash
       run: |
-        python -m pip install --upgrade pip
-        pip install --no-cache-dir -r requirements.txt
+        python -m pip install -r requirements.txt
 
     - name: Check Frida version compatibility
-      shell: pwsh
+      shell: bash
       run : |
-        python -c "
-        from utils import frida_helpers;
-        print('[INFO] Checking Frida version compatibility...');
-        if not frida_helpers.check_frida_version_match():
-          raise SystemExit('[ERROR] Frida versions do not match! Aborting workflow.');
-        "
+        python -m utils.frida_helpers_check
+
     - name: Run Static Analysis (APK/IPA)
       shell: bash
       run: |
