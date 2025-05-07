@@ -13,6 +13,7 @@ from dynamic.modules.logcat_monitor import LogcatMonitor
 from dynamic.modules.storage_monitor import StorageMonitor
 from dynamic.hook_loader import load_hooks
 from dynamic.traffic_analyzer import TrafficAnalyzer
+from utils.burp_api_helper import send_url_to_burp, start_burp
 
 FRIDA_AVAILABLE = frida_helpers.FRIDA_AVAILABLE
 try:
@@ -125,6 +126,8 @@ def run_frida_script(script_path, package_name):
 
 def start_dynamic_analysis(app_path, hook_profile="minimal"):
     logger.info(f"Starting dynamic analysis for {app_path}...")
+    logger.info("Attempting to auto-start Burp Suite...")
+    start_burp()
 
     device_type = check_device_connection()
     if not device_type:
@@ -214,8 +217,24 @@ def start_dynamic_analysis(app_path, hook_profile="minimal"):
     analyzer = TrafficAnalyzer(traffic_log)
     sensitive_artifacts = analyzer.analyze()
 
+    logger.info("Pushing discovered URLs into BurpSuite for scanning...")
+
     if sensitive_artifacts:
-        analyzer.save_findings(os.path.join("reports", f"{app_identifier}_traffic_findings.txt"))
+        unique_urls = set()
+        for artifact in sensitive_artifacts:
+            if artifact.startswith("http"):
+                unique_urls.add(artifact)
+        logger.info(f"[+] Found {len(unique_urls)} unique URLs to send to Burp Scanner.")
+        # Send each unique URL to Burp Scanner
+        for url in unique_urls:
+            logger.info(f"[>] Sending {url} to Burp...")
+            try:
+                send_url_to_burp(url)
+                time.sleep(1)  # Optional: Slight delay to avoid flooding Burp API
+            except Exception as e:
+                logger.warning(f"[!] Failed to send {url} to Burp: {e}")
+    else:
+        logger.info("No URLs found to push to Burp.")
 
     # LOGCAT MONITOR CLEANUP
     if 'logcat_monitor' in locals():
@@ -223,6 +242,16 @@ def start_dynamic_analysis(app_path, hook_profile="minimal"):
 
     logger.info("Cleaning up Frida hooks...")
     interceptor.stop_hook()
+
+    # ---------------- NETWORK TESTING -------------------
+    logger.info("[*] Sending target URL to Burp for active scanning...")
+
+    # Typical default address for Android Emulator -> Host mappings
+    burp_target = "http://10.0.2.2:8080"  
+    try:
+        send_url_to_burp(burp_target)
+    except Exception as e:
+        logger.warning(f"[!] Failed to send target to Burp: {e}")
 
     logger.info("Dynamic analysis finished successfully!")
 

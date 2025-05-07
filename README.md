@@ -27,6 +27,10 @@
   - iOS: `traffic_interceptor_ios.py`
 - Logcat monitoring for credential/session/token leaks
 - Filesystem monitoring for insecure storage (SharedPreferences, plaintext tokens, DBs)
+- **BurpSuite Integration**:
+  - Automatically sends discovered URLs to Burp Scanner
+  - Supports scanning multiple unique URLs found at runtime
+  - Can optionally auto-start BurpSuite in headless/API mode
 
 ### Exploitation Toolkit
 - Basic IDOR fuzzing
@@ -46,6 +50,9 @@
 ```plaintext
 MobileMorph/
 ├── main.py                            # Entry point CLI orchestrator
+├── .gitignore
+├── .github/workflows
+│   ├── ci.yml
 ├── static/
 │   ├── apk_static_analysis.py
 │   ├── ipa_static_analysis.py
@@ -57,11 +64,14 @@ MobileMorph/
 │   ├── traffic_interceptor.py
 │   ├── traffic_interceptor_ios.py
 │   ├── frida_hooks/
+│   │   ├── auth_bypass.js
 │   │   ├── bypass_ssl.js
 │   │   ├── hook_crypto.js
 │   │   ├── network_logger.js
-│   │   ├── auth_bypass.js
+│   │   ├── proxy_force.js
 │   │   └── root_bypass.js
+│   ├── mitm/
+│   │   ├── modify_requests.py
 │   ├── modules/
 │   │   ├── logcat_monitor.py
 │   │   └── storage_monitor.py
@@ -69,15 +79,17 @@ MobileMorph/
 │   └── exploit_runner.py
 ├── report/
 │   └── report_generator.py
-├── scripts/
-│   └── setup_emulator.sh
 ├── reports/                           # Generated output reports
+├── tools/
+│   └── frida-server
 ├── utils/
+│   ├── burp_api_helper.py            
 │   ├── emulator_manager.py            # Automates rooted emulator setup + snapshots
-│   ├── logger.py
-│   ├── frida_helpers.py
 │   ├── file_utils.py
+│   ├── frida_helpers.py
+│   ├── logger.py
 │   └── paths.py
+├── README.md
 └── requirements.txt
 ```
 
@@ -116,6 +128,7 @@ python3 main.py --setup-emulator
 - Debug info leaks (via Logcat and traffic)
 - Root detection bypass (hooked via Frida)
 - Secrets in memory and local storage
+- Active Burp Scanner tests against all runtime-discovered URLs
 
 ## Requirements
 - Python 3.8+
@@ -131,6 +144,7 @@ pip install -r requirements.txt
 
 ##⚙️ Roadmap
 - iOS dynamic support (experimental)
+- Expand Burp automation to support passive scanning and reporting import
 - Integration with MobSF or Drozer-like module system
 - Add signature bypass via runtime patching
 
