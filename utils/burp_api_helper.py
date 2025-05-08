@@ -1,11 +1,10 @@
 import requests
 import subprocess
-import os
 from utils import logger
 
 BURP_API_URL = "http://localhost:1337/v0.1"  # Adjust if using different port or API
 BURP_API_KEY = "u27cIvA8QAzktVI51olstuMr1r43Bazl"
-BURP_PATH = "C:\Users\MalikSmith\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Burp Suite Pro\Burp Suite Professional.lnk"
+BURP_PATH = r"C:\Users\MalikSmith\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Burp Suite Pro\Burp Suite Professional.lnk"
 
 def start_burp():
     logger.info("Starting BurpSuite in headless mode...")
