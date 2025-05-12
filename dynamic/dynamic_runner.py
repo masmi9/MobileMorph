@@ -259,6 +259,29 @@ class DynamicAnalysisEngine:
     def __init__(self, app_path, hook_profile="minimal"):
         self.app_path = app_path
         self.hook_profile = hook_profile
+        self.package_name = get_package_name_from_apk(app_path)
+        self.session = None
 
     def start(self):
         start_dynamic_analysis(self.app_path, self.hook_profile)
+
+    def inject_frida_script(self, script_path):
+        logger.info(f"Injecting Frida script: {script_path}")
+        try:
+            device = frida.get_usb_device(timeout=10)
+            pid = device.spawn([self.package_name])
+            self.session = device.attach(pid)
+            with open(script_path, 'r') as f:
+                script_source = f.read()
+            def on_message(message, data):
+                if message["type"] == "send":
+                    logger.logtext(f"[Frida] {message['payload']}")
+                elif message["type"] == "error":
+                    logger.warning(f"[Frida ERROR] {message['stack']}")
+            script = self.session.create_script(script_source)
+            script.on("message", on_message)
+            script.load()
+            logger.success(f"Frida script loaded: {script_path}")
+            device.resume(pid)
+        except Exception as e:
+            logger.error(f"Frida injection failed: {e}")

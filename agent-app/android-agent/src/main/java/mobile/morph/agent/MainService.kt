@@ -13,7 +13,12 @@ import android.util.Base64
 
 class MainService : Service() {
     private val client = OkHttpClient()
-    private val agentId = "demo_agent"  // Optionally make this dynamic
+    private val agentId: String by lazy {
+        android.provider.Settings.Secure.getString(
+            applicationContext.contentResolver,
+            android.provider.Settings.Secure.ANDROID_ID
+        ) ?: "unknown_agent"
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Thread {

@@ -80,6 +80,13 @@ def run_dynamic_analysis(args, selected_profile="minimal"):
     
     if args.apk:
         engine = DynamicAnalysisEngine(args.apk, hook_profile=selected_profile)
+        # Inject specific Frida script if --frida-script is provided
+        if args.frida_script:
+            frida_script_path = os.path.join("dynamic", "frida_hooks", args.frida_script)
+            if os.path.exists(frida_script_path):
+                engine.inject_frida_script(frida_script_path)
+            else:
+                logger.warning(f"Frida script not found at {frida_script_path}")
         engine.start()
     elif args.ipa:
         logger.logtext("Dynamic analysis for IPA is not yet supported. Please provide an IPA.")
@@ -171,6 +178,7 @@ def main():
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
     parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis (default: minimal, full, ssl_only, crypto_focus, stealth)')
+    parser.add_argument('--frida-script', type=str, help="Optional: custom Frida script to inject from dynamic frida hooks")
     parser.add_argument('--proxy', action='store_true', help='Force app traffic through proxy via Frida hooks')
     parser.add_argument('--setup-emulator', action='store_true', help='Prepare emulator with Frida snapshot')
     parser.add_argument('--agent', action='store_true', help='Deploy or interact with MobileMorph Agent')

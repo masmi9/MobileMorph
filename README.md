@@ -1,6 +1,6 @@
 # MobileMorph - Automated Mobile App Pentesting Framework
 
-**MobileMorph** is a modular and extensible security testing framework built to automate static and dynamic analysis of Android and iOS applications. It integrates Frida hooks, traffic interception, filesystem monitoring, and secrets detection to uncover critical mobile app vulnerabilities during runtime and build time.
+**MobileMorph** is a modular and extensible mobile application security testing framework designed to automate **static**, **dynamic**, and **exploit-based** analysis for Android and iOS applications. It integrates advanced features such as Frida-based instrumentation, emulator automation, BurpSuite integration, runtime file/traffic inspection, and C2 agent deployment to empower offensive security engineers and mobile red teamers.
 
 ---
 
@@ -10,7 +10,12 @@
 - APK/IPA decompilation using `jadx` / `class-dump`
 - Secrets scanning (`API keys`, `JWTs`, `passwords`) in extracted strings
 - Permission and component enumeration
-- Manifest/Info.plist analysis
+- AndroidManifest/Info.plist analysis
+- Permission and component enumeration
+- Taint flow tracking from input to sink (basic & advanced)
+- WebView misconfiguration detection
+- Obfuscation heuristics and reflection usage
+- CVE matching for third-party libraries using OSS Index
 
 ### Dynamic Analysis
 - Automated APK installation and app launch
@@ -28,20 +33,28 @@
 - Logcat monitoring for credential/session/token leaks
 - Filesystem monitoring for insecure storage (SharedPreferences, plaintext tokens, DBs)
 - **BurpSuite Integration**:
-  - Automatically sends discovered URLs to Burp Scanner
-  - Supports scanning multiple unique URLs found at runtime
-  - Can optionally auto-start BurpSuite in headless/API mode
+  - Auto-submits runtime-discoverd URLs for active scanning
+  - Supports Burp headless mode and API-driven scans
 
 ### Exploitation Toolkit
-- Basic IDOR fuzzing
-- Token replay and login bypass attempts
-- Placeholder for expanded modules (JWT tampering, broken auth logic, etc.)
+- Exported component abuse and WebView injection
+- Basic IDOR replay and role tampering
+- Token reuse/login bypass fuzzing
+- Exploit runner integration with APKs post-analysis
 
-### Emulator Automation (NEW)
+### MobileMorph Agent (C2)
+- Custom Android agent for command injection and payload execution
+- C2 server built with FastAPI(`server/app.py`)
+- Agent Capabilities:
+  - `run_shell`, `list_files`, `read_file`, `write_file`, `load_jar`, `uninstall`
+  - Dynamic `agent_id` generation from device
+  - Persistence using `BOOT_COMPLETED` receiver
+  - DexClassLoader-based dynamic payload loading
+
+### Emulator Automation
 - Headless emulator provisioning via `--setup-emulator`
-- Automatically creates and configures Android Virtual Device (AVD)
-- Boots emulator with Frida preloaded
-- Saves snapshot (`frida_ready`) for instant reuse in future runs
+- Provisioned rooted emulator with Frida preloaded
+- Auto-snapshot (`frida_ready`) for instant reuse in future runs
 
 ---
 
@@ -50,19 +63,12 @@
 ```plaintext
 MobileMorph/
 ├── main.py                            # Entry point CLI orchestrator
-├── .gitignore
-├── .github/workflows
-│   ├── ci.yml
 ├── static/
 │   ├── apk_static_analysis.py
 │   ├── ipa_static_analysis.py
 │   └── secrets_scanner.py
 ├── dynamic/
 │   ├── dynamic_runner.py
-│   ├── hook_loader.py                  # Loads Frida hook profiles
-│   ├── traffic_analyzer.py
-│   ├── traffic_interceptor.py
-│   ├── traffic_interceptor_ios.py
 │   ├── frida_hooks/
 │   │   ├── auth_bypass.js
 │   │   ├── bypass_ssl.js
@@ -70,6 +76,10 @@ MobileMorph/
 │   │   ├── network_logger.js
 │   │   ├── proxy_force.js
 │   │   └── root_bypass.js
+│   ├── traffic_interceptor.py
+│   ├── traffic_interceptor_ios.py
+│   ├── hook_loader.py                  # Loads Frida hook profiles
+│   ├── traffic_analyzer.py
 │   ├── mitm/
 │   │   ├── modify_requests.py
 │   ├── modules/
@@ -77,9 +87,23 @@ MobileMorph/
 │   │   └── storage_monitor.py
 ├── exploits/
 │   └── exploit_runner.py
+├── agent-app/
+│   ├── agent_payloads/
+|   │   └── Payload.java
+│   ├── android-agent
+|   │   ├── src/main/
+|   |   │   ├── AndroidManifest.xml
+|   |   │   ├── java/mobile/morph/agent/
+|   |   │   │   ├── MainService.kt
+|   |   │   │   └── BootReceiver.kt
+|   │   └── storage_monitor.py CMakeLists.txt
+|   ├── native_injector/
+|   |   │   └── injector.c
+|   ├── server/
+|   |   ├── app.py
+|   |   └── requirements.txt
 ├── report/
 │   └── report_generator.py
-├── reports/                           # Generated output reports
 ├── tools/
 │   └── frida-server
 ├── utils/
@@ -94,11 +118,7 @@ MobileMorph/
 ```
 
 ## Usage
-### Run All Analyses
-```bash
-python3 main.py --apk path/to/app.apk --static --dynamic --exploit
-```
-### Static Analysis Only
+### Static Analysis
 ```bash
 python3 main.py --apk path/to/app.apk --static
 ```
@@ -115,6 +135,14 @@ python3 main.py --apk path/to/app.apk --dynamic --profile full
 ```bash
 python3 main.py --apk path/to/app.apk --exploit
 ```
+### Agent Deployment + C2 Server
+```bash
+python3 main.py --apk path/to/app.apk --agent --server
+```
+### Run All Analyses (Static + Dynamic + Exploit)
+```bash
+python3 main.py --apk path/to/app.apk --static --dynamic --exploit
+```
 ### Emulator Setup with Snapshot (Frida-Ready)
 ```bash
 python3 main.py --setup-emulator
@@ -123,12 +151,12 @@ python3 main.py --setup-emulator
 ## Attack Surface Coverage
 - Insecure data storage (SharedPreferences, SQLite, local files)
 - Insecure communication (HTTP, broken SSL pinning)
-- Authentication bypass (login force, session tampering)
-- Authorization flaws (IDOR replay, role tampering)
-- Debug info leaks (via Logcat and traffic)
-- Root detection bypass (hooked via Frida)
-- Secrets in memory and local storage
-- Active Burp Scanner tests against all runtime-discovered URLs
+- Root detection & bypass (hooked via Frida)
+- WebView abuse and file:// URI injection
+- IDOR & replay token-based privilege escalation
+- Runtime secrets/log/token leakage via Logcat
+- Malicious paylaod injection (via agent or Frida)
+- CVE exposure in embedded libraries
 
 ## Requirements
 - Python 3.8+
@@ -143,13 +171,15 @@ pip install -r requirements.txt
 ```
 
 ##⚙️ Roadmap
-- iOS dynamic support (experimental)
+- iOS dynamic support (experimental -- alpha)
 - Expand Burp automation to support passive scanning and reporting import
 - Integration with MobSF or Drozer-like module system
 - Add signature bypass via runtime patching
+- Passive BurpSuite scan support
+- Remote Frida hook injection over USB/IP
 
 
 
 👨‍💻 Author
 Malik Smith
-Built with ❤️ for advanced mobile app pentesting automation
+Built with ❤️ for advanced mobile app pentesting automation as well as serious mobile security research and red teaming.
