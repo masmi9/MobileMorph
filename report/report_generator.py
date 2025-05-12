@@ -38,6 +38,19 @@ class ReportGenerator:
             else:
                 report.write("- No extracted strings found.\n\n")
 
+    def generate_agent_report(self):
+        logger.info("Generating MobileMorph Agent C2 report...")
+        agent_log_path = os.path.join(self.output_dir, f"{self.app_name}_agent_c2_log.txt")
+
+        with open(self.report_file, "w") as report:
+            report.write(f"# MobileMorph Agent C2 Report for {self.app_name}\n\n")
+            if os.path.exists(agent_log_path):
+                report.write("## Command-and-Control Log\n\n")
+                with open(agent_log_path, "r") as f:
+                    report.write(f.read())
+            else:
+                report.write("- No agent C2 logs found.\n\n")
+
     def generate_dynamic_report(self):
         logger.info("Generating dynamic analysis report...")
         traffic_log = os.path.join(self.output_dir, f"{self.app_name}_traffic_log.txt")
@@ -73,6 +86,8 @@ class ReportGenerator:
             self.generate_dynamic_report()
         elif self.mode == "exploit":
             self.generate_exploit_report()
+        elif self.mode == "agent":
+            self.generate_agent_report()
         else:
             logger.error(f"Unknown report mode: {self.mode}")
 
