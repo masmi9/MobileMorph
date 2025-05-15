@@ -6,6 +6,9 @@ report/__pycache__
 dynamic/__pycache__
 exploits/__pycache__
 dynamic/modules/__pycache__
+threat_intel/__pycache__
+dashboard/__pycache__
+cve_scanner/__pycache__
 actions-runner/
 .venv/
 PMPA/
