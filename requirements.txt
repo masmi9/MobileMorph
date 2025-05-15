@@ -6,3 +6,7 @@ apkutils2==1.0.0
 pycryptodome==3.20.0
 colorama==0.4.6
 requests==2.31.0
+flask
+flask-sqlalchemy
+requests
+osv-scanner

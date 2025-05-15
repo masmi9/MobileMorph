@@ -8,6 +8,8 @@ HOOKS = {
     "auth_bypass": "dynamic/frida_hooks/auth_bypass.js",
     "root_bypass": "dynamic/frida_hooks/root_bypass.js",
     "proxy": "dynamic/frida_hooks/proxy_force.js",
+    "bypass_jailbreak": "dynamic/frida_hooks/bypass_jailbreak.js",
+    "hook_keychain": "dynamic/frida_hooks/hook_keychain.js"
 }
 
 # Define reusable hook profiles
@@ -17,7 +19,9 @@ PROFILES = {
     "ssl_only": ["bypass_ssl"],
     "crypto_focus": ["hook_crypto"],
     "stealth": ["root_bypass", "bypass_ssl"],
-    "proxy": ["proxy", "network_logger"]
+    "proxy": ["proxy", "network_logger"],
+    "ios_full": ["network_logger", "bypass_jailbreak", "hook_keychain"],
+    "ios_minimal": ["bypass_jailbreak"]
 }
 
 def load_hooks(profile_name):

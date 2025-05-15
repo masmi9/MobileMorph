@@ -6,6 +6,7 @@ import requests
 from utils import paths, logger
 import xml.etree.ElementTree as ET
 import static.secrets_scanner as secrets
+from cve_scanner.scanner import scan_gradle_file_for_cves
 
 ### This will use apktool, jadx, semgrep, strings, and some regex to hunt for exported components WebView configs, weak crypto, etc.
 
@@ -381,8 +382,18 @@ def run_static_analysis(apk_path):
     # Decompile APK file
     decompile_apk(apk_path, output_dir)
     extract_strings(apk_path, strings_file)
+
+    # CVE scan from build.gradle
+    build_gradle_path = os.path.join(output_dir, "app", "build.gradle")
+    if os.path.exists(build_gradle_path):
+        logger.info("Found build.gradle, starting CVE scan...")
+        cve_results = scan_gradle_file_for_cves(build_gradle_path)
+        results["cve_scan_results"] = cve_results
+    else:
+        logger.warning("No build.gradle found for CVE scanning.")
     
     if os.path.exists(manifest_path):
+        results["permissions"] = extract_permissions(manifest_path)
         scan_manifest(manifest_path)
         scan_network_security_config(output_dir)
     else:
@@ -394,7 +405,30 @@ def run_static_analysis(apk_path):
 
     if os.path.exists(smali_dir):
         scan_smali_code(smali_dir)
-        scan_for_root_detection(smali_dir)
+        # Capture root detection indicators
+        root_indicators = []
+        root_detection_indicators = [
+            "isDeviceRooted", "checkRoot", "checkSuBinary",
+            "/system/app/Superuser.apk", "com.noshufou.android.su",
+            "eu.chainfire.supersu", "magisk", r'\bsu\b'
+        ]
+        for root, _, files in os.walk(smali_dir):
+            for file in files:
+                if file.endswith('.smali'):
+                    file_path = os.path.join(root, file)
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                        for indicator in root_detection_indicators:
+                            if re.search(indicator, content):
+                                root_indicators.append(f"{indicator} found in {file_path}")
+        if root_indicators:
+            logger.warning("Potential Root Detection Code Found:")
+            for line in root_indicators:
+                logger.logtext(f" - {line}")
+        else:
+            logger.info("No root detection indicators found.")
+        # Store root findings in results
+        results["root_detection"] = root_indicators
         detect_reflection_usage(smali_dir)
         detect_obfuscation(smali_dir)
         advanced_data_flow(smali_dir)

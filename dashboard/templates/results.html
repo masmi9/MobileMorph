@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Results for {{ result.filename }}</h2>
+<p>
+  <strong>Platform:</strong> {{ result.platform }} |
+  <strong>Type:</strong> {{ result.scan_type }} |
+  <strong>Date:</strong> {{ result.created_at.strftime('%Y-%m-%d %H:%M') }}
+</p>
+
+<!-- Download JSON -->
+<a class="btn btn-outline-primary mb-3" href="{{ url_for('static', filename='reports/' + result.filename.replace('.apk', '').replace('.ipa', '') + '_findings.json') }}" download>
+  Download Full Findings (JSON)
+</a>
+
+<hr>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs" id="resultTabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#secrets">Secrets</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#components">Exported Components</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#permissions">Permissions</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#webview">WebView Config</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#root">Root Detection</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cve">CVE Scan</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#all">All Findings</button></li>
+</ul>
+
+<!-- Tab Contents -->
+<div class="tab-content mt-3">
+  <div class="tab-pane fade show active" id="secrets">
+    {% if parsed["secrets"] %}
+      <ul class="list-group">
+        {% for name, match in parsed["secrets"] %}
+          <li class="list-group-item"><strong>{{ name }}</strong>: <code>{{ match }}</code></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No secrets found.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="components">
+    {% if parsed["exported_components"] %}
+      <ul class="list-group">
+        {% for comp in parsed["exported_components"] %}
+          <li class="list-group-item"><code>{{ comp }}</code></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No exported components found.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="permissions">
+    {% if parsed["permissions"] %}
+      <ul class="list-group">
+        {% for perm in parsed["permissions"] %}
+          {% set is_dangerous = perm in [
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_PHONE_STATE",
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.READ_CONTACTS",
+            "android.permission.AUTHENTICATE_ACCOUNTS",
+            "android.permission.GET_ACCOUNTS",
+            "android.permission.CAMERA"
+          ] %}
+          <li class="list-group-item">
+            {% if is_dangerous %}
+              <span class="text-danger fw-bold">{{ perm }}</span> <span class="badge bg-danger">Dangerous</span>
+            {% else %}
+              {{ perm }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No permissions extracted.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="webview">
+    {% if parsed["webview_config"] %}
+      <ul class="list-group">
+        {% for config in parsed["webview_config"] %}
+          <li class="list-group-item"><code>{{ config }}</code></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No WebView issues found.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="root">
+    {% if parsed["root_detection"] %}
+      <ul class="list-group">
+        {% for item in parsed["root_detection"] %}
+          <li class="list-group-item">{{ item }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No root detection code found.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="cve">
+    {% if parsed["cve_scan_results"] %}
+      <ul class="list-group">
+        {% for dep, vulns in parsed["cve_scan_results"].items() %}
+          <li class="list-group-item">
+            <strong>{{ dep }}</strong>
+            {% if vulns %}
+              <ul class="mt-2">
+                {% for v in vulns %}
+                  {% set score = v.cvss or 0 %}
+                  {% if score >= 9 %}
+                    {% set badge = "bg-danger" %}
+                    {% set label = "Critical" %}
+                  {% elif score >= 7 %}
+                    {% set badge = "bg-warning text-dark" %}
+                    {% set label = "High" %}
+                  {% elif score >= 4 %}
+                    {% set badge = "bg-info text-dark" %}
+                    {% set label = "Medium" %}
+                  {% else %}
+                    {% set badge = "bg-secondary" %}
+                    {% set label = "Low" %}
+                  {% endif %}
+                  <li>
+                    <span class="text-danger fw-bold">{{ v.id }}</span>: {{ v.summary }}<br>
+                    <span class="badge {{ badge }}">{{ label }} (CVSS: {{ score }})</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <span class="text-success">No CVEs found</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No CVEs detected or scanned.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="all">
+    <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
+{{ parsed | tojson(indent=2) if parsed is mapping else parsed }}
+    </pre>
+  </div>
+</div>
+
+<a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
+{% endblock %}

@@ -62,10 +62,10 @@
 
 ```plaintext
 MobileMorph/
-├── main.py                            # Entry point CLI orchestrator
+├── main.py
 ├── static/
 │   ├── apk_static_analysis.py
-│   ├── ipa_static_analysis.py
+│   ├── ipa_static_analysis.py                  # (1) iOS Static Support
 │   └── secrets_scanner.py
 ├── dynamic/
 │   ├── dynamic_runner.py
@@ -75,10 +75,12 @@ MobileMorph/
 │   │   ├── hook_crypto.js
 │   │   ├── network_logger.js
 │   │   ├── proxy_force.js
-│   │   └── root_bypass.js
+│   │   ├── root_bypass.js
+│   │   ├── hook_keychain.js                    # (1) iOS Hook
+│   │   └── bypass_jailbreak.js                 # (1) iOS Hook
 │   ├── traffic_interceptor.py
-│   ├── traffic_interceptor_ios.py
-│   ├── hook_loader.py                  # Loads Frida hook profiles
+│   ├── traffic_interceptor_ios.py              # (1) iOS Dynamic Support
+│   ├── hook_loader.py
 │   ├── traffic_analyzer.py
 │   ├── mitm/
 │   │   ├── modify_requests.py
@@ -89,26 +91,28 @@ MobileMorph/
 │   └── exploit_runner.py
 ├── agent-app/
 │   ├── agent_payloads/
-|   │   └── Payload.java
-│   ├── android-agent
-|   │   ├── src/main/
-|   |   │   ├── AndroidManifest.xml
-|   |   │   ├── java/mobile/morph/agent/
-|   |   │   │   ├── MainService.kt
-|   |   │   │   └── BootReceiver.kt
-|   │   └── storage_monitor.py CMakeLists.txt
-|   ├── native_injector/
-|   |   │   └── injector.c
-|   ├── server/
-|   |   ├── app.py
-|   |   └── requirements.txt
+│   ├── android-agent/
+│   ├── native_injector/
+│   └── server/
 ├── report/
 │   └── report_generator.py
-├── tools/
-│   └── frida-server
+├── threat_intel/                                # (2) IOC + Threat Feed Module
+│   ├── ti_scanner.py
+│   └── indicators.json
+├── dashboard/                                   # (3) Web UI
+│   ├── app.py
+│   ├── routes.py
+│   ├── models.py
+│   └── templates/
+│       ├── index.html
+│       ├── results.html
+│       └── upload.html
+├── cve_scanner/                                 # (4) Dependency CVE Detection
+│   ├── scanner.py
+│   └── osv_utils.py
 ├── utils/
-│   ├── burp_api_helper.py            
-│   ├── emulator_manager.py            # Automates rooted emulator setup + snapshots
+│   ├── burp_api_helper.py                       # (5) Extended for custom Burp plugin/log bridge
+│   ├── emulator_manager.py
 │   ├── file_utils.py
 │   ├── frida_helpers.py
 │   ├── logger.py

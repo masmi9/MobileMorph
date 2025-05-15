@@ -5,6 +5,7 @@ import re
 from utils import paths, logger
 import plistlib
 import zipfile
+from threat_intel.ti_scanner import scan_indicators
 
 def unzip_ipa(ipa_path, output_dir):
     os.makedirs(output_dir, exist_ok=True)
@@ -51,6 +52,7 @@ def scan_source_code(root_dir):
     }
 
     findings = []
+    ioc_candidates = []
 
     for root, _, files in os.walk(root_dir):
         for file in files:
@@ -63,11 +65,14 @@ def scan_source_code(root_dir):
                             matches = re.findall(regex, content)
                             if matches:
                                 findings.append((issue, filepath, matches))
+                        ioc_candidates.extend(re.findall(r'http[s]?://[^\s"\']+', content))
                 except Exception as e:
                     print(f"[!] Error reading {filepath}: {e}")
 
     for issue, filepath, matches in findings:
         print(f"[!] {issue} detected in {filepath}: {len(matches)} occurrence(s)")
+    
+    return findings, list(set(ioc_candidates))
 
 def scan_for_jailbreak_detection(root_dir):
     """Scan for jailbreak detection logic inside extracted IPA contents."""
@@ -118,8 +123,11 @@ def run_static_analysis(ipa_path):
     else:
         logger.warning("Info.plist not found")
 
-    # Scan the extracted code
-    scan_source_code(output_dir)
+    # Collect findings + IOC indicators
+    findings, ioc_candidates = scan_source_code(output_dir)
+
+    # Scan indicators against threat intelligence feeds
+    scan_indicators(ioc_candidates, source_file=ipa_path)
 
     # Scan for jailbreak detection
     scan_for_jailbreak_detection(output_dir)

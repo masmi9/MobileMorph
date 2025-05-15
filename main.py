@@ -16,6 +16,8 @@ from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis
 import exploits.exploit_runner as exp
 from utils.emulator_manager import ensure_emulator_ready
 from report.report_generator import ReportGenerator
+from dashboard.models import ScanResult, db
+import json
 
 analysis_results = {}
 
@@ -41,6 +43,23 @@ def perform_static_analysis(args):
         # Save the results globally for exploit to use later
         analysis_results = results
 
+        # Save APK static findings to dashboard DB
+        scan = ScanResult (
+            filename = os.path.basename(args.apk),
+            platform = "apk",
+            scan_type = "static",
+            findings = json.dumps(findings)
+        )
+        db.session.add(scan)
+        db.session.commit()
+
+        # Write findings to static JSON file for download
+        report_path = os.path.join("dashboard", "static", "reports")
+        os.makedirs(report_path, exist_ok=True)
+        with open(os.path.join(report_path, f"{base_name}_findings.json"), "w") as f:
+            json.dump(results, f, indent=2)
+
+
     elif args.ipa:
         base_name = ipa.run_static_analysis(args.ipa)
         strings_file = f"output/{os.path.basename(args.ipa).replace('.ipa', '')}_strings.txt"
@@ -52,6 +71,22 @@ def perform_static_analysis(args):
         }
         report = ReportGenerator(base_name, downloads_folder, mode="static")
         report.generate_static_report(findings=findings)
+
+        # Save IPA static findings to dashboard DB
+        scan = ScanResult (
+            filename = os.path.basename(args.ipa),
+            platform = "ipa",
+            scan_type = "static",
+            findings = json.dumps(findings)
+        )
+        db.session.add(scan)
+        db.session.commit()
+
+        # Write findings to static JSON file for download
+        report_path = os.path.join("dashboard", "static", "reports")
+        os.makedirs(report_path, exist_ok=True)
+        with open(os.path.join(report_path, f"{base_name}_findings.json"), "w") as f:
+            json.dump(results, f, indent=2)
     
     else:
         logger.warning("Please specify either --apk or --ipa for static analysis.")
@@ -183,6 +218,7 @@ def main():
     parser.add_argument('--setup-emulator', action='store_true', help='Prepare emulator with Frida snapshot')
     parser.add_argument('--agent', action='store_true', help='Deploy or interact with MobileMorph Agent')
     parser.add_argument('--server', action='store_true', help='Launch agent C2 server')
+    parser.add_argument('--ui', action='store_true', help='Launch MobileMorph dashboard UI')
     args = parser.parse_args()
 
     if args.static:
@@ -201,6 +237,11 @@ def main():
     if args.setup_emulator and not args.dynamic:
         ensure_emulator_ready(args.apk)
         sys.exit(0)
+    if args.ui:
+        from dashboard.app import create_app
+        app = create_app()
+        app.run(debug=True, port=5050)
+        return # Prevent rest of main() from executing after UI is launched
     if not frida_helpers.FRIDA_AVAILABLE and (args.dynamic or args.exploit):
         logger.warning("Frida is not available. Dynamic analysis and exploitation will be skipped.")
 
