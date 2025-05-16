@@ -22,6 +22,7 @@ def index():
 @main.route('/upload', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
+        file_id = request.args.get("file_id", str(uuid.uuid4()))  # capture incoming ID
         file = request.files['file']
         if not file:
             flash("No file uploaded.", "danger")
@@ -32,7 +33,6 @@ def upload_file():
         os.makedirs("uploads", exist_ok=True)
         file.save(filepath)
 
-        file_id = str(uuid.uuid4())
         update_progress(file_id, 5)  # Start at 5%
 
         downloads_folder = get_output_folder()
@@ -41,7 +41,7 @@ def upload_file():
         if filename.endswith('.apk'):
             base_name, results = apk.run_static_analysis(filepath, file_id)
         elif filename.endswith('.ipa'):
-            base_name, results = ipa.run_static_analysis(filepath)
+            base_name, results = ipa.run_static_analysis(filepath, file_id)
         else:
             flash("Unsupported file type. Please upload an APK or IPA.", "danger")
             return redirect(url_for("main.upload_file"))
