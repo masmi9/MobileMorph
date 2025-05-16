@@ -41,11 +41,16 @@ def scan_indicators(indicators, source_file="unknown"):
 
     # Log to indicators.json
     os.makedirs(os.path.dirname(INDICATOR_LOG), exist_ok=True)
+
+    old_data = []
     if os.path.exists(INDICATOR_LOG):
-        with open(INDICATOR_LOG, "r") as f:
-            old_data = json.load(f)
-    else:
-        old_data = []
+        try:
+            with open(INDICATOR_LOG, "r") as f:
+                content = f.read().strip()
+                if content:
+                    old_data = json.loads(content)
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            logger.warning(f"Could not parse exisiting indicator log: {e}. Overwriting.")
 
     old_data.extend(results)
     with open(INDICATOR_LOG, "w") as f:

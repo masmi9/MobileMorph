@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 import static.secrets_scanner as secrets
 from cve_scanner.scanner import scan_gradle_file_for_cves
 from dashboard.progress_tracker import update_progress
+from threat_intel.ti_scanner import scan_indicators
 
 ### This will use apktool, jadx, semgrep, strings, and some regex to hunt for exported components WebView configs, weak crypto, etc.
 
@@ -461,10 +462,23 @@ def run_static_analysis(apk_path, file_id=None):
             logger.warning("Potential secrets detected in strings extraction.")
             for name, match in secrets_result:
                 logger.logtext(f" - {name}: {match}")
+    # IOC Detection + Threat Enrichment
+    ioc_candidates = []
+    try:
+        with open(strings_file, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+            ioc_candidates = re.findall(r'(?:https?|ftp)://[^\s\'"]+', content)
+            ioc_candidates += re.findall(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', content)
+            ioc_candidates = list(set(ioc_candidates))
+            results["ioc_candidates"] = ioc_candidates
+    except Exception as e:
+        logger.warning(f"Failed to extract IOC candidates from strings: {e}")
+    scan_indicators(ioc_candidates, source_file=apk_path)
     
     audit_third_party_libraries(apk_path)
     update_progress(file_id, 95)
-    
+    results["ioc_candidates"] = list(set(ioc_candidates))
+
     return base_name, results
 
 if __name__ == "__main__":

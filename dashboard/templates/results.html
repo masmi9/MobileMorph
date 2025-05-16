@@ -23,6 +23,7 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#root">Root Detection</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cve">CVE Scan</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#reflection">Reflection Usage</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ioc">IOC Intelligence</button></li>
   {% if result.platform == 'ipa' %}
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ats">ATS Config</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#uiwebview">UIWebView</button></li>
@@ -48,7 +49,7 @@
     {% endif %}
   </div>
 
-  <!-- APK Tabs -->
+  <!-- Exported Components -->
   <div class="tab-pane fade" id="components">
     {% if parsed["exported_components"] %}
       <ul class="list-group">
@@ -61,6 +62,7 @@
     {% endif %}
   </div>
 
+  <!-- Permissions -->
   <div class="tab-pane fade" id="permissions">
     {% if parsed["permissions"] %}
       <ul class="list-group">
@@ -90,6 +92,7 @@
     {% endif %}
   </div>
 
+  <!-- WebView -->
   <div class="tab-pane fade" id="webview">
     {% if parsed["webview_config"] %}
       <ul class="list-group">
@@ -102,6 +105,7 @@
     {% endif %}
   </div>
 
+  <!-- Root Detection -->
   <div class="tab-pane fade" id="root">
     {% if parsed["root_detection"] %}
       <ul class="list-group">
@@ -114,6 +118,7 @@
     {% endif %}
   </div>
 
+  <!-- CVE Scan -->
   <div class="tab-pane fade" id="cve">
     {% if parsed["cve_scan_results"] %}
       <ul class="list-group">
@@ -154,6 +159,7 @@
     {% endif %}
   </div>
 
+  <!-- Reflection -->
   <div class="tab-pane fade" id="reflection">
     {% if parsed["reflection_usage"] %}
       <ul class="list-group">
@@ -166,6 +172,19 @@
     {% endif %}
   </div>
 
+  <!-- IOC -->
+  <div class="tab-pane fade" id="ioc">
+    {% if parsed["ioc_candidates"] %}
+      <ul class="list-group">
+        {% for ioc in parsed["ioc_candidates"] %}
+          <li class="list-group-item"><code>{{ ioc }}</code></li>
+        {% endfor %}
+      </ul>
+      <p class="mt-2"><em>Enriched IOC results logged in <code>threat_intel/indicators.json</code>.</em></p>
+    {% else %}
+      <p class="text-muted">No IOC candidates detected.</p>
+    {% endif %}
+  </div>
 
   <!-- iOS Tabs -->
   <div class="tab-pane fade" id="ats">

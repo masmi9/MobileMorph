@@ -7,10 +7,12 @@ from dashboard.extensions import db
 from dashboard.models import ScanResult, IOCEntry
 from dashboard.progress_tracker import get_progress, update_progress
 from static import apk_static_analysis as apk
+from dynamic import dynamic_runner as dyna
 from static import ipa_static_analysis as ipa
 from static import secrets_scanner as secrets
 from utils.paths import get_output_folder
 from report.report_generator import ReportGenerator
+from utils import logger
 
 main = Blueprint("main", __name__)
 
@@ -102,3 +104,34 @@ def delete_scan(scan_id):
         flash(f"Error deleting scan: {e}", "danger")
 
     return redirect(url_for('main.index'))
+
+@main.route('/dynamic/latest')
+def run_dynamic_on_latest():
+    # Get latest uploaded scan from DB
+    latest_scan = ScanResult.query.order_by(ScanResult.created_at.desc()).first()
+    if not latest_scan:
+        flash("No uploaded file found for dynamic analysis.", "warning")
+        return redirect(url_for("main.index"))
+
+    file_path = os.path.join("uploads", latest_scan.filename)
+    if not os.path.exists(file_path):
+        flash(f"Uploaded file {latest_scan.filename} not found.", "danger")
+        return redirect(url_for("main.index"))
+
+    try:
+        if latest_scan.filename.endswith(".apk"):
+            logger.info(f"Running dynamic analysis for APK: {latest_scan.filename}")
+            dynamic_results = dyna.start_dynamic_analysis(file_path)
+        elif latest_scan.filename.endswith(".ipa"):
+            logger.info(f"Running dynamic analysis for IPA: {latest_scan.filename}")
+            dynamic_results = start_dynamic_analysis(file_path)
+        else:
+            flash("Unsupported file type for dynamic analysis.", "danger")
+            return redirect(url_for("main.index"))
+    except Exception as e:
+        logger.warning(f"Dynamic analysis failed: {e}")
+        flash(f"Error during dynamic analysis: {e}", "danger")
+        return redirect(url_for("main.index"))
+
+    flash(f"Dynamic analysis completed for {latest_scan.filename}.", "success")
+    return render_template("dynamic_results.html", results=dynamic_results, filename=latest_scan.filename)
