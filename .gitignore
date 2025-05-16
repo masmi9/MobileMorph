@@ -13,3 +13,4 @@ actions-runner/
 .venv/
 PMPA/
 tools/frida-server
+uploads/

@@ -22,11 +22,19 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#webview">WebView Config</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#root">Root Detection</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cve">CVE Scan</button></li>
+  {% if result.platform == 'ipa' %}
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ats">ATS Config</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#uiwebview">UIWebView</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#schemes">Custom Schemes</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#source">Source Issues</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#jailbreak">Jailbreak Detection</button></li>
+  {% endif %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#all">All Findings</button></li>
 </ul>
 
 <!-- Tab Contents -->
 <div class="tab-content mt-3">
+  <!-- Secrets -->
   <div class="tab-pane fade show active" id="secrets">
     {% if parsed["secrets"] %}
       <ul class="list-group">
@@ -39,6 +47,7 @@
     {% endif %}
   </div>
 
+  <!-- APK Tabs -->
   <div class="tab-pane fade" id="components">
     {% if parsed["exported_components"] %}
       <ul class="list-group">
@@ -144,6 +153,63 @@
     {% endif %}
   </div>
 
+  <!-- iOS Tabs -->
+  <div class="tab-pane fade" id="ats">
+    {% if parsed["insecure_ats"] %}
+      <div class="alert alert-danger">NSAllowsArbitraryLoads is enabled. ATS is insecure.</div>
+    {% else %}
+      <p class="text-success">ATS (App Transport Security) is secure.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="uiwebview">
+    {% if parsed["deprecated_uiwebview"] %}
+      <div class="alert alert-warning">Deprecated UIWebView usage detected.</div>
+    {% else %}
+      <p class="text-success">No deprecated UIWebView detected.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="schemes">
+    {% if parsed["custom_url_schemes"] %}
+      <ul class="list-group">
+        {% for scheme in parsed["custom_url_schemes"] %}
+          <li class="list-group-item">{{ scheme }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No custom URL schemes found.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="source">
+    {% if parsed["source_issues"] %}
+      <ul class="list-group">
+        {% for issue, filepath, matches in parsed["source_issues"] %}
+          <li class="list-group-item">
+            <strong>{{ issue }}</strong> in <code>{{ filepath }}</code><br>
+            <small>{{ matches | length }} match(es)</small>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No source-level issues detected.</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="jailbreak">
+    {% if parsed["jailbreak_detection"] %}
+      <ul class="list-group">
+        {% for indicator in parsed["jailbreak_detection"] %}
+          <li class="list-group-item"><code>{{ indicator }}</code></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No jailbreak detection logic found.</p>
+    {% endif %}
+  </div>
+
+  <!-- RAW -->
   <div class="tab-pane fade" id="all">
     <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
 {{ parsed | tojson(indent=2) if parsed is mapping else parsed }}

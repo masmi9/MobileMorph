@@ -7,6 +7,7 @@ from utils import paths, logger
 import xml.etree.ElementTree as ET
 import static.secrets_scanner as secrets
 from cve_scanner.scanner import scan_gradle_file_for_cves
+from dashboard.progress_tracker import update_progress
 
 ### This will use apktool, jadx, semgrep, strings, and some regex to hunt for exported components WebView configs, weak crypto, etc.
 
@@ -361,7 +362,7 @@ def detect_obfuscation(smali_dir):
         percent = (obfuscated_files/total_files) * 100
         logger.info(f"Obfuscated files: {obfuscated_files}/{total_files} ({percent:.2f}%)")
 
-def run_static_analysis(apk_path):
+def run_static_analysis(apk_path, file_id=None):
     downloads_folder = paths.get_output_folder()
     base_name = os.path.basename(apk_path).replace(".apk", "")
     output_dir = os.path.join(downloads_folder, f"{base_name}_decompiled")
@@ -375,10 +376,12 @@ def run_static_analysis(apk_path):
         "secrets": [],
     }
 
+    update_progress(file_id, 10)
     # Check if Semgrep Docker container is running, if not, start it
     if not is_semgrep_docker_running():
         start_semgrep_docker_container()
     
+    update_progress(file_id, 20)
     # Decompile APK file
     decompile_apk(apk_path, output_dir)
     extract_strings(apk_path, strings_file)
@@ -387,11 +390,13 @@ def run_static_analysis(apk_path):
     build_gradle_path = os.path.join(output_dir, "app", "build.gradle")
     if os.path.exists(build_gradle_path):
         logger.info("Found build.gradle, starting CVE scan...")
+        update_progress(file_id, 30)
         cve_results = scan_gradle_file_for_cves(build_gradle_path)
         results["cve_scan_results"] = cve_results
     else:
         logger.warning("No build.gradle found for CVE scanning.")
     
+    update_progress(file_id, 40)
     if os.path.exists(manifest_path):
         results["permissions"] = extract_permissions(manifest_path)
         scan_manifest(manifest_path)
@@ -399,6 +404,7 @@ def run_static_analysis(apk_path):
     else:
         logger.warning("AndroidManifest.xml not found after decompilation.")
 
+    update_progress(file_id, 55)
     # Scan the decompiled code (smali or Java)
     smali_dir = os.path.join(output_dir, 'smali')
     java_dir = os.path.join(output_dir, 'src')
@@ -429,6 +435,7 @@ def run_static_analysis(apk_path):
             logger.info("No root detection indicators found.")
         # Store root findings in results
         results["root_detection"] = root_indicators
+        update_progress(file_id, 70)
         detect_reflection_usage(smali_dir)
         detect_obfuscation(smali_dir)
         advanced_data_flow(smali_dir)
@@ -440,6 +447,7 @@ def run_static_analysis(apk_path):
     else:
         logger.warning("No smali or Java code found after decompilation.")
 
+    update_progress(file_id, 85)
     if os.path.exists(strings_file):
         secrets_result = secrets.scan_for_secrets(strings_file)
         results["secrets"] = secrets_result
@@ -449,6 +457,7 @@ def run_static_analysis(apk_path):
                 logger.logtext(f" - {name}: {match}")
     
     audit_third_party_libraries(apk_path)
+    update_progress(file_id, 95)
     
     return base_name, results
 

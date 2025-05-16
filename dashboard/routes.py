@@ -1,18 +1,18 @@
 import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+import json
+import uuid
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from werkzeug.utils import secure_filename
-from dashboard.models import db, ScanResult, IOCEntry
+from dashboard.extensions import db
+from dashboard.models import ScanResult, IOCEntry
+from dashboard.progress_tracker import get_progress, update_progress
 from static import apk_static_analysis as apk
 from static import ipa_static_analysis as ipa
 from static import secrets_scanner as secrets
 from utils.paths import get_output_folder
 from report.report_generator import ReportGenerator
-import json
 
 main = Blueprint("main", __name__)
-# Run static analysis after upload
-downloads_folder = get_output_folder()
-findings = {}
 
 @main.route('/')
 def index():
@@ -23,54 +23,49 @@ def index():
 def upload_file():
     if request.method == 'POST':
         file = request.files['file']
-        if file:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join("uploads", filename)
-            os.makedirs("uploads", exist_ok=True)
-            file.save(filepath)
+        if not file:
+            flash("No file uploaded.", "danger")
+            return redirect(url_for("main.upload_file"))
 
-            downloads_folder = get_output_folder()
-            findings = {}
+        filename = secure_filename(file.filename)
+        filepath = os.path.join("uploads", filename)
+        os.makedirs("uploads", exist_ok=True)
+        file.save(filepath)
 
-            # Run static analysis
-            if filename.endswith('.apk'):
-                base_name, results = apk.run_static_analysis(filepath)
-                strings_file = os.path.join(downloads_folder, f"{base_name}_strings.txt")
-                secrets_result = secrets.scan_for_secrets(strings_file)
-                findings = {
-                    "Secrets Scan Results": secrets_result,
-                    "Static Analysis Logs": f"Decompiled APK and strings dumped at {strings_file}"
-                }
+        file_id = str(uuid.uuid4())
+        update_progress(file_id, 5)  # Start at 5%
 
-            elif filename.endswith('.ipa'):
-                base_name = ipa.run_static_analysis(filepath)
-                strings_file = os.path.join(downloads_folder, f"{base_name}_strings.txt")
-                secrets_result = secrets.scan_for_secrets(strings_file)
-                findings = {
-                    "Secrets Scan Results": secrets_result,
-                    "Static Analysis Logs": f"Decompiled IPA and strings dumped at {strings_file}"
-                }
+        downloads_folder = get_output_folder()
+        findings = {}
 
-            else:
-                flash("Unsupported file type. Please upload an APK or IPA.", "danger")
-                return redirect(url_for("main.upload_file"))
+        if filename.endswith('.apk'):
+            base_name, results = apk.run_static_analysis(filepath, file_id)
+        elif filename.endswith('.ipa'):
+            base_name, results = ipa.run_static_analysis(filepath)
+        else:
+            flash("Unsupported file type. Please upload an APK or IPA.", "danger")
+            return redirect(url_for("main.upload_file"))
 
-            # Generate report (optional)
-            report = ReportGenerator(base_name, downloads_folder, mode="static")
-            report.generate_static_report(findings=findings)
+        update_progress(file_id, 95)  # Near completion
 
-            # Save to database
-            result = ScanResult(
-                filename=filename,
-                platform='apk' if filename.endswith('.apk') else 'ipa',
-                scan_type='static',
-                findings=json.dumps(findings)
-            )
-            db.session.add(result)
-            db.session.commit()
+        # Generate report
+        report = ReportGenerator(base_name, downloads_folder, mode="static")
+        report.generate_static_report(findings=results)
 
-            flash('File uploaded and analysis placeholder saved.', 'success')
-            return redirect(url_for('main.index'))
+        # Save to DB
+        result = ScanResult(
+            filename=filename,
+            platform='apk' if filename.endswith('.apk') else 'ipa',
+            scan_type='static',
+            findings=json.dumps(results)
+        )
+        db.session.add(result)
+        db.session.commit()
+
+        update_progress(file_id, 100)  # Done
+        flash('File uploaded and analyzed successfully.', 'success')
+        return redirect(url_for("main.index"))
+
     return render_template('upload.html')
 
 @main.route('/results/<int:scan_id>')
@@ -86,3 +81,24 @@ def show_results(scan_id):
 def show_iocs():
     iocs = IOCEntry.query.order_by(IOCEntry.created_at.desc()).all()
     return render_template('iocs.html', iocs=iocs)
+
+@main.route('/progress/<file_id>')
+def progress_status(file_id):
+    return jsonify({"progress": get_progress(file_id)})
+
+@main.route('/delete/<int:scan_id>', methods=['POST'])
+def delete_scan(scan_id):
+    result = ScanResult.query.get_or_404(scan_id)
+    try:
+        # Optionally delete report file from disk
+        report_file = os.path.join('static', 'reports', f"{result.filename.replace('.apk','').replace('.ipa','')}_findings.json")
+        if os.path.exists(report_file):
+            os.remove(report_file)
+
+        db.session.delete(result)
+        db.session.commit()
+        flash("Scan deleted successfully.", "success")
+    except Exception as e:
+        flash(f"Error deleting scan: {e}", "danger")
+
+    return redirect(url_for('main.index'))

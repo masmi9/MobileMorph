@@ -1,4 +1,4 @@
-from dashboard.app import db
+from dashboard.extensions import db
 
 class ScanResult(db.Model):
     id = db.Column(db.Integer, primary_key=True)

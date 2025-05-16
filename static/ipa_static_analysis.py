@@ -6,6 +6,7 @@ from utils import paths, logger
 import plistlib
 import zipfile
 from threat_intel.ti_scanner import scan_indicators
+from dashboard.progress_tracker import update_progress
 
 def unzip_ipa(ipa_path, output_dir):
     os.makedirs(output_dir, exist_ok=True)
@@ -107,14 +108,17 @@ def scan_for_jailbreak_detection(root_dir):
     else:
         logger.info("No jailbreak detection indicators found in source code.")
 
-def run_static_analysis(ipa_path):
+def run_static_analysis(ipa_path, file_id=None):
     logger.info(f"Starting IPA static analysis for {ipa_path}...")
     downloads_folder = paths.get_output_folder()
     base_name = os.path.basename(ipa_path).replace(".ipa", "")
     output_dir = os.path.join(downloads_folder, f"{base_name}_extracted")
     
+    if file_id: update_progress(file_id, 5)
+
     # Unzip the IPA
     unzip_ipa(ipa_path, output_dir)
+    if file_id: update_progress(file_id, 15)
 
     # Locate Info.plist
     plist_path = find_info_plist(output_dir)
@@ -122,17 +126,31 @@ def run_static_analysis(ipa_path):
         scan_info_plist(plist_path)
     else:
         logger.warning("Info.plist not found")
+    if file_id: update_progress(file_id, 30)
 
     # Collect findings + IOC indicators
     findings, ioc_candidates = scan_source_code(output_dir)
+    if file_id: update_progress(file_id, 60)
 
     # Scan indicators against threat intelligence feeds
     scan_indicators(ioc_candidates, source_file=ipa_path)
+    if file_id: update_progress(file_id, 80)
 
     # Scan for jailbreak detection
     scan_for_jailbreak_detection(output_dir)
+    if file_id: update_progress(file_id, 100)  # Done
+
+    results = {
+        "insecure_ats": plist_data.get('NSAppTransportSecurity', {}).get('NSAllowsArbitraryLoads', False) if plist_path else False,
+        "deprecated_uiwebview": 'UIWebView' in str(plist_data) if plist_path else False,
+        "custom_url_schemes": plist_data.get('LSApplicationQueriesSchemes', []) if plist_path else [],
+        "source_issues": findings,
+        "ioc_candidates": ioc_candidates,
+        "jailbreak_detection": [i[1] for i in findings],  # just indicators
+    }
 
     logger.info("Static analysis for IPA completed.")
+    return base_name, results
 
 if __name__ == "__main__":
     run_static_analysis(sys.argv[1])

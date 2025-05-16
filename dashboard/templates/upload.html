@@ -4,21 +4,64 @@
 <form method="POST" enctype="multipart/form-data" onsubmit="showLoading()">
     <div class="mb-3">
         <label for="file" class="form-label">Select .apk or .ipa file</label>
-        <input class="form-control" type="file" name="file" required>
+        <input class="form-control" type="file" name="file" id="fileInput" required>
     </div>
     <button type="submit" class="btn btn-success">Upload and Analyze</button>
 </form>
 
 <!-- Loading spinner -->
-<div id="loading" class="text-center mt-4" style="display: none;">
-    <div class="spinner-border text-primary" role="status"></div>
-    <p class="mt-2">Running static analysis, please wait...</p>
+<div id="progressContainer" class="mt-4" style="display: none;">
+    <div class="progress">
+        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+             role="progressbar" style="width: 0%">0%</div>
+    </div>
+    <p class="mt-2">Static analysis in progress...</p>
 </div>
 
 <script>
-    function showLoading() {
+    function startUpload(e) {
+        e.preventDefault(); // Prevent traditional form submission
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
         document.querySelector('form').style.display = 'none';
-        document.getElementById('loading').style.display = 'block';
+        document.getElementById('progressContainer').style.display = 'block';
+
+        // Generate a temporary client-side ID for this upload
+        const fileId = crypto.randomUUID();  // Available in modern browsers
+
+        // Start polling progress
+        pollProgress(fileId);
+
+        // Submit file via AJAX
+        fetch('/upload?file_id=' + fileId, {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            if (response.redirected) {
+                window.location.href = response.url; // Redirect to results
+            }
+        });
+    }
+
+    function pollProgress(fileId) {
+        const interval = setInterval(() => {
+            fetch(`/progress/${fileId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const progress = data.progress || 0;
+                    const bar = document.getElementById('progressBar');
+                    bar.style.width = progress + '%';
+                    bar.textContent = progress + '%';
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                    }
+                });
+        }, 1000);
     }
 </script>
 {% endblock %}
