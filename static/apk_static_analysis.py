@@ -293,7 +293,9 @@ def scan_webview_usage(smali_dir):
                     content = f.read()
                     for pattern in webview_patterns:
                         if re.search(pattern, content):
+                            msg = f"'{pattern}' found in {file_path}"
                             logger.warning(f"Risky WebView config '{pattern}' found in {file_path}")
+                            webview_issues.append(msg)
     return webview_issues
 
 def scan_code_complexity(smali_dir):
@@ -336,6 +338,7 @@ def detect_hardcoded_keys(smali_dir):
 def detect_reflection_usage(smali_dir):
     logger.info("Scanning for reflection usage...")
     patterns = [r'Class\.forName', r'Method\.invoke', r'getDeclaredMethod', r'getDeclaredField']
+    findings = []
     for root_dir, _, files in os.walk(smali_dir):
         for file in files:
             if file.endswith('.smali'):
@@ -344,7 +347,10 @@ def detect_reflection_usage(smali_dir):
                     content = f.read()
                     for pattern in patterns:
                         if re.search(pattern, content):
+                             msg = f"Reflection pattern '{pattern}' found in {path}"
                              logger.logtext(f"Reflection pattern '{pattern}' found in {path}")
+                             findings.append(msg)
+    return findings
 
 def detect_obfuscation(smali_dir):
     logger.info("Scanning for obfuscation heuristics...")
@@ -436,7 +442,7 @@ def run_static_analysis(apk_path, file_id=None):
         # Store root findings in results
         results["root_detection"] = root_indicators
         update_progress(file_id, 70)
-        detect_reflection_usage(smali_dir)
+        results["reflection_usage"] = detect_reflection_usage(smali_dir)
         detect_obfuscation(smali_dir)
         advanced_data_flow(smali_dir)
         detect_hardcoded_keys(smali_dir)
