@@ -77,7 +77,9 @@ def show_results(scan_id):
         parsed = json.loads(result.findings)
     except Exception:
         parsed = result.findings
-    return render_template('results.html', result=result, parsed=parsed)
+    # Extracted base_name by stripping file extension
+    base_name = result.filename.replace('.apk', '').replace('.ipa', '')
+    return render_template('results.html', result=result, parsed=parsed, base_name=base_name)
 
 @main.route('/iocs')
 def show_iocs():
@@ -135,3 +137,35 @@ def run_dynamic_on_latest():
 
     flash(f"Dynamic analysis completed for {latest_scan.filename}.", "success")
     return render_template("dynamic_results.html", results=dynamic_results, filename=latest_scan.filename)
+
+@main.route('/view-source/')
+def view_source_missing():
+    flash("APK name missing in URL.", "warning")
+    return redirect(url_for("main.index"))
+
+@main.route('/view-source/<apk_name>')
+def view_source_page(apk_name):
+    return render_template('source_viewer.html', apk_name=apk_name)
+
+@main.route('/api/source/list')
+def list_source_files():
+    apk = request.args.get("apk")
+    source_path = os.path.join("extracted", apk, "source")
+    file_list = []
+    for root, _, files in os.walk(source_path):
+        for f in files:
+            if f.endswith(".java") or f.endswith(".smali"):
+                rel = os.path.relpath(os.path.join(root, f), source_path)
+                file_list.append(rel)
+    return jsonify(file_list)
+
+@main.route('/api/source/view')
+def view_source_content():
+    apk = request.args.get("apk")
+    file_path = request.args.get("path")
+    full_path = os.path.join("extracted", apk, "source", file_path)
+    if not os.path.isfile(full_path):
+        return jsonify({"error": "File not found"}), 404
+    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+    return jsonify({"content": content})

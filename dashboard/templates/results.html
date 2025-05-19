@@ -251,4 +251,8 @@
 </div>
 
 <a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
+<a href="{{ url_for('main.view_source_page', apk_name=base_name) }}" class="btn btn-secondary mt-4">
+  View Decompiled Source Code
+</a>
+
 {% endblock %}
