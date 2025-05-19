@@ -24,6 +24,7 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cve">CVE Scan</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#reflection">Reflection Usage</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ioc">IOC Intelligence</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#static">Static Code Findings</button></li>
   {% if result.platform == 'ipa' %}
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ats">ATS Config</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#uiwebview">UIWebView</button></li>
@@ -186,6 +187,26 @@
     {% endif %}
   </div>
 
+  <!-- Code Findings -->
+  <div class="tab-pane fade" id="static">
+    {% if parsed["static_findings"] %}
+      <ul class="list-group">
+        {% for finding in parsed["static_findings"] %}
+          <li class="list-group-item">
+            <strong>{{ finding.type }}</strong>: {{ finding.message }}<br>
+            <small>{{ finding.file }} (line {{ finding.line }})</small><br>
+            <a href="{{ url_for('main.view_source_page', apk_name=base_name) }}?file={{ finding.file }}&line={{ finding.line }}">
+              📄 View in Source
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No static code issues detected.</p>
+    {% endif %}
+  </div>
+
+
   <!-- iOS Tabs -->
   <div class="tab-pane fade" id="ats">
     {% if parsed["insecure_ats"] %}
@@ -251,8 +272,5 @@
 </div>
 
 <a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
-<a href="{{ url_for('main.view_source_page', apk_name=base_name) }}" class="btn btn-secondary mt-4">
-  View Decompiled Source Code
-</a>
 
 {% endblock %}

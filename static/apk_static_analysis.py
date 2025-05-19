@@ -278,6 +278,87 @@ def scan_decompiled_code(java_dir):
     except subprocess.CalledProcessError as e:
         logger.warning(f"Error running Semgrep: {e}")
 
+def scan_decompiled_code_with_findings(java_dir):
+    findings = []
+    tainted_vars = set()
+    for root, _, files in os.walk(java_dir):
+        for file in files:
+            if file.endswith(".java"):
+                filepath = os.path.join(root, file)
+                relpath = os.path.relpath(filepath, java_dir)
+                try:
+                    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                        lines = f.readlines()
+                        for i, line in enumerate(lines):
+                            line_number = i + 1
+                            combined_line = line
+                            if i + 1 < len(lines):
+                                combined_line += lines[i +1]
+                            # Runtime.exec detection
+                            if re.search(r'\bRuntime\.getRuntime\(\)\.exec\s*\(', combined_line):
+                                findings.append({
+                                    "type": "command_execution",
+                                    "message": "Use of Runtime.exec() usage",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # WebView.loadURL
+                            if re.search(r'\.loadUrls\s*\(', combined_line):
+                                findings.append({
+                                    "type": "webview_usage",
+                                    "message": "Potential unsafe WebView.loadUrl() usage",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # Suspicious URL hardcoding (attacker.com, localhost, etc.)
+                            if re.search(r'"(http|https|ftp)://[^"]*(attacker|localhost|127\.|192\.168|shell\.jsp)', line, re.IGNORECASE):
+                                findings.append({
+                                    "type": "suspicious_url",
+                                    "message": "Suspicious hardcoded URL or shell path",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # URL instantiation (possible SSRF)
+                            if re.search(r'new\s+URL\s*\(', combined_line):
+                                findings.append({
+                                    "type": "ssrf_potential",
+                                    "message": "URL object instantiated; check for tainted input",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # Base64 decoding (common in obfuscation or C2 behavior)
+                            if re.search(r'Base64\.decode|Base64Decoder', line):
+                                findings.append({
+                                    "type": "base64_decode",
+                                    "message": "Base64 decoding detected (possible obfuscation)",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # Reflection
+                            if re.search(r'Class\.forName|Method\.invoke|Field\.setAccessible', line):
+                                findings.append({
+                                    "type": "reflection_usage",
+                                    "message": "Reflection API usage detected",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # Taint source detection (user input methods)
+                            taint_match = re.search(r'String\s+(\w+)\s*=\s*.*(getIntent|getExtras|getStringExtra|getData)\s*\(', line)
+                            if taint_match:
+                                tainted_vars.add(taint_match.group(1))
+                            # Tainted data used in dangerous sink
+                            if any(var in line for var in tainted_vars) and re.search(r'exec|loadUrl|openConnection', line):
+                                findings.append({
+                                    "type": "tainted_data_usage",
+                                    "message": f"Tainted variable used in sensitive context: {line.strip()}",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            
+                except Exception as e:
+                    print(f"[!] Error reading {filepath}: {e}")
+    return findings
+
 def scan_webview_usage(smali_dir):
     logger.info("Scanning for risky WebView configurations...")
     webview_issues = []
@@ -450,7 +531,8 @@ def run_static_analysis(apk_path, file_id=None):
         results["webview_config"] = scan_webview_usage(smali_dir)
         scan_code_complexity(smali_dir)
     elif os.path.exists(java_dir):
-        scan_decompiled_code(java_dir)
+        # scan_decompiled_code(java_dir)
+        results["static_findings"] = scan_decompiled_code_with_findings(java_dir)
     else:
         logger.warning("No smali or Java code found after decompilation.")
 

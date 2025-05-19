@@ -6,10 +6,16 @@
 <div class="flex">
   <div style="width: 25%;">
     <h4>Files</h4>
-    <ul id="file-list" style="max-height: 80vh; overflow-y: scroll;"></ul>
+    <ul id="file-list" style="max-height: 80vh; overflow-y: auto;"></ul>
   </div>
   <div style="width: 75%;">
-    <pre id="source-code" style="background:#1e1e1e;color:white;padding:1em;overflow-x:auto;max-height:80vh;"></pre>
+    <!-- TOOLBAR -->
+    <div id="toolbar" style="margin-bottom: 10px;">
+      <button id="copy-selected" class="btn btn-sm btn-secondary">📋 Copy Selected</button>
+      <button id="comment-selected" class="btn btn-sm btn-primary">💬 Comment</button>
+    </div>
+    <!-- CODE VIEWER -->
+    <pre id="source-code" style="background:#1e1e1e; color:white; padding:1em; overflow-x:auto; max-height:80vh;"></pre>
   </div>
 </div>
 
