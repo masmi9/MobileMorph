@@ -12,7 +12,6 @@ import static.secrets_scanner as secrets
 from utils.paths import get_output_folder 
 from utils import logger, frida_helpers
 from report import report_generator
-from dynamic.dynamic_runner import DynamicAnalysisEngine, start_dynamic_analysis, get_package_name_from_apk
 import exploits.exploit_runner as exp
 from utils.emulator_manager import ensure_emulator_ready
 from report.report_generator import ReportGenerator
@@ -114,19 +113,38 @@ def run_dynamic_analysis(args, selected_profile="minimal"):
             return
     
     if args.apk:
-        engine = DynamicAnalysisEngine(args.apk, hook_profile=selected_profile)
+        logger.info("Launching dyna.py for dynamic analysis...")
+        try:
+            engine = subprocess.run(["python", "dyna.py" , "--apk", args.apk], check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Dynamic analysis failed: {e}")
         # Inject specific Frida script if --frida-script is provided
-        if args.frida_script:
-            frida_script_path = os.path.join("dynamic", "frida_hooks", args.frida_script)
-            if os.path.exists(frida_script_path):
-                engine.inject_frida_script(frida_script_path)
-            else:
-                logger.warning(f"Frida script not found at {frida_script_path}")
+        #if args.frida_script:
+        #    frida_script_path = os.path.join("dynamic", "frida_hooks", args.frida_script)
+        #    if os.path.exists(frida_script_path):
+        #        engine.inject_frida_script(frida_script_path)
+        #    else:
+        #        logger.warning(f"Frida script not found at {frida_script_path}")
         engine.start()
     elif args.ipa:
         logger.logtext("Dynamic analysis for IPA is not yet supported. Please provide an IPA.")
     else:
         logger.warning("Please specify either --apk or --ipa for dynamic analysis.")
+
+def get_package_name_from_apk(apk_path):
+    try:
+        output = subprocess.check_output(["aapt", "dump", "badging", apk_path], text=True)
+        for line in output.splitlines():
+            if line.startswith("package:"):
+                parts = line.split()
+                for part in parts:
+                    if part.startswith("name="):
+                        package_name = part.split("=")[1].replace("'", "")
+                        logger.info(f"Extracted package name: {package_name}")
+                        return package_name
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to extract package name: {e}")
+    return None
 
 def run_exploit(args):
     downloads_folder = get_output_folder()
