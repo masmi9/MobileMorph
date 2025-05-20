@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">Upload Mobile App</h2>
+<form id="uploadForm" method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="file" class="form-label">Select .apk or .ipa file</label>
+        <input class="form-control" type="file" name="file" id="fileInput" required>
+    </div>
+    <button type="submit" class="btn btn-success">Upload and Analyze</button>
+</form>
+
+<!-- Progress Bar -->
+<div id="progressContainer" class="mt-4" style="display: none;">
+    <div class="progress">
+        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+             role="progressbar" style="width: 0%">0%</div>
+    </div>
+    <p class="mt-2">Static analysis in progress...</p>
+</div>
+
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // Generate UUID for tracking progress
+        const fileId = crypto.randomUUID();
+
+        // Hide form and show progress bar
+        document.getElementById('uploadForm').style.display = 'none';
+        document.getElementById('progressContainer').style.display = 'block';
+
+        // Begin polling progress
+        pollProgress(fileId);
+
+        // Submit file via AJAX
+        fetch(`/upload?file_id=${fileId}`, {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            if (response.redirected) {
+                window.location.href = response.url;
+            }
+        }).catch(err => {
+            console.error("Upload failed:", err);
+        });
+    });
+
+    function pollProgress(fileId) {
+        const interval = setInterval(() => {
+            fetch(`/progress/${fileId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const progress = data.progress || 0;
+                    const bar = document.getElementById('progressBar');
+                    bar.style.width = progress + '%';
+                    bar.textContent = progress + '%';
+
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            window.location.href = "/";
+                        }, 1500);
+                    }
+                })
+                .catch(err => {
+                    console.error("Progress polling failed:", err);
+                    clearInterval(interval);
+                });
+        }, 1000);
+    }
+</script>
+{% endblock %}

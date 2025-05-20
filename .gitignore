@@ -6,7 +6,13 @@ report/__pycache__
 dynamic/__pycache__
 exploits/__pycache__
 dynamic/modules/__pycache__
+threat_intel/__pycache__
+threat_intel/indicators.json
+dashboard/__pycache__
+dashboard/morph.db
+cve_scanner/__pycache__
 actions-runner/
 .venv/
 PMPA/
 tools/frida-server
+uploads/

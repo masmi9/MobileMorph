@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Source Code Viewer for {{ apk_name }}</h2>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/source_viewer.css') }}">
+
+<div class="flex">
+  <div style="width: 25%;">
+    <h4>Files</h4>
+    <ul id="file-list" style="max-height: 80vh; overflow-y: auto;"></ul>
+  </div>
+  <div style="width: 75%;">
+    <!-- TOOLBAR -->
+    <div id="toolbar" style="margin-bottom: 10px;">
+      <button id="copy-selected" class="btn btn-sm btn-secondary">📋 Copy Selected</button>
+      <button id="comment-selected" class="btn btn-sm btn-primary">💬 Comment</button>
+    </div>
+    <!-- CODE VIEWER -->
+    <pre id="source-code" style="background:#1e1e1e; color:white; padding:1em; overflow-x:auto; max-height:80vh;"></pre>
+  </div>
+</div>
+
+<script>
+  const apkName = "{{ apk_name }}";
+</script>
+<script src="{{ url_for('static', filename='js/source_viewer.js') }}"></script>
+{% endblock %}

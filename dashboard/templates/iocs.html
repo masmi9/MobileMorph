@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">Threat Intelligence - IOCs</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Indicator</th>
+            <th>Source File</th>
+            <th>Threat Score</th>
+            <th>VirusTotal (Raw)</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ioc in iocs %}
+        <tr>
+            <td>{{ ioc.indicator }}</td>
+            <td>{{ ioc.source_file }}</td>
+            <td>{{ ioc.threat_score }}</td>
+            <td><pre style="font-size: 11px;">{{ ioc.vt_data }}</pre></td>
+            <td>{{ ioc.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center">No indicators found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

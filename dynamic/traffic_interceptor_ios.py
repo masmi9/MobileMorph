@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 from utils import logger, paths
+from dynamic.hook_loader import load_hooks
 
 class FridaTrafficInterceptorIOS:
     def __init__(self, bundle_id):
@@ -31,11 +32,10 @@ class FridaTrafficInterceptorIOS:
             logger.error(f"Failed to connect to iOS device: {str(e)}")
             sys.exit(1)
 
-    def start_hook(self, timeout=30):
+    def start_hook(self, profile="ios_full", timeout=30):
         try:
-            logger.info(f"Attaching to iOS app {self.bundle_id} on device {device.name}...")
-
             device = self.get_device()
+            logger.info(f"Attaching to iOS app {self.bundle_id} on device {device.name}...")
 
             # Setup traffic log file
             output_folder = paths.get_output_folder()
@@ -58,44 +58,44 @@ class FridaTrafficInterceptorIOS:
 
             self.session = device.attach(target.pid)
             logger.info(f"Attached to PID {target.pid} for {self.bundle_id}.")
-            
-            # Load the default or custom Frida script
-            with open("dynamic/frida_hooks/network_logger.js") as f:
-                script_code = f.read()
-            
-            self.script = self.session.create_script(script_code)
-            self.script.on("message", self.on_message)
-            self.script.load()
+
+            # Load Frida script
+            hooks = load_hooks(profile)
+            logger.info(f"Loaded {len(hooks)} Frida hook(s) from profile '{profile}'")
+
+            for name, code in hooks:
+                script = self.session.create_script(code)
+                script.on("message", self.on_message)
+                script.load()
+                self.scripts.append(script)
+                logger.info(f"Injected hook: {name}")
 
             logger.info("Frida hook injected successfully. Monitoring traffic...")
             threading.Event().wait()
-        
+
         except Exception as e:
             logger.error(f"Failed to hook into {self.bundle_id}: {str(e)}")
-            sys.exit(1)
-    
-    def load_frida_script(self, script_path):
-        try:
-            with open(script_path) as f:
-                script_code = f.read()
-
-            self.script = self.session.create_script(script_code)
-            self.script.on("message", self.on_message)
-            self.script.load()
-
-            logger.info(f"Frida hook injected successfully. Loaded Frida scritp: {script_path}")
-            self.hook_event.wait()
-        except Exception as e:
-            logger.error(f"Failed to load Frida script: {str(e)}")
             sys.exit(1)
 
     def stop_hook(self):
         try:
-            if self.script:
-                self.script.unload()
-                logger.info("Unloaded Frida script.")
+            for script in self.script:
+                script.unload()
+            logger.info("Unloaded Frida script.")
             if self.session:
                 self.session.detach()
                 logger.info("Detached from app process.")
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}")
+
+# Optional CLI runner for testing
+#if __name__ == "__main__":
+#    if len(sys.argv) < 2:
+#        print("Usage: python traffic_interceptor_ios.py <bundle_id> [profile_name]")
+#        sys.exit(1)
+#
+#    bundle_id = sys.argv[1]
+#    profile = sys.argv[2] if len(sys.argv) > 2 else "ios_full"
+#
+#    interceptor = FridaTrafficInterceptorIOS(bundle_id)
+#    interceptor.start_hook(profile=profile)
