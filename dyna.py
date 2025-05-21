@@ -549,7 +549,7 @@ class OWASPTestSuiteDrozer:
         self.generate_report()
 
 def ensure_drozer_agent_ready():
-    package_name = "com.mwr.dz"
+    package_name = "com.withsecure.dz"
     agent_apk_path = os.path.join("tools", "drozer-agent.apk")
 
     logging.info("Checking if Drozer agent is installed on device...")
@@ -576,15 +576,12 @@ def ensure_drozer_agent_ready():
         logging.info("Checking if Drozer agent is currently running...")
         ps_output = subprocess.check_output(["adb", "shell", "ps"], text=True)
 
-        if "com.mwr.dz" in ps_output:
+        if "com.withsecure.dz" in ps_output:
             logging.info(colorize_text("Drozer agent is already running.", COLOR_GREEN))
         else:
             logging.warning(colorize_text("Drozer agent is not running. Starting it now...", COLOR_YELLOW))
             # Launch agent via monkey tool
-            subprocess.run([
-                "adb", "shell", "monkey", "-p", "com.mwr.dz", "-c",
-                "android.intent.category.LAUNCHER", "1"
-            ], check=True)
+            subprocess.run(["adb", "shell", "monkey", "-p", "com.withsecure.dz.dz", "-c","android.intent.category.LAUNCHER", "1"], check=True)
             logging.info(colorize_text("Drozer agent launched.", COLOR_GREEN))
             # Allow some buffer time for startup
             time.sleep(2)
@@ -599,9 +596,6 @@ if __name__ == "__main__":
     parser.add_argument("--apk", help="Path to APK file")
     parser.add_argument("--package", help="Package name")
     args = parser.parse_args()
-
-    # Ensure drozer agent is on device
-    ensure_drozer_agent_ready()
 
     if args.apk:
         apk_path = args.apk

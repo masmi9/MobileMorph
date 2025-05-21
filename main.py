@@ -115,7 +115,7 @@ def run_dynamic_analysis(args, selected_profile="minimal"):
     if args.apk:
         logger.info("Launching dyna.py for dynamic analysis...")
         try:
-            engine = subprocess.run(["python", "dyna.py" , "--apk", args.apk], check=True)
+            subprocess.run(["python", "dyna.py" , "--apk", args.apk], check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Dynamic analysis failed: {e}")
         # Inject specific Frida script if --frida-script is provided
@@ -125,7 +125,7 @@ def run_dynamic_analysis(args, selected_profile="minimal"):
         #        engine.inject_frida_script(frida_script_path)
         #    else:
         #        logger.warning(f"Frida script not found at {frida_script_path}")
-        engine.start()
+        #engine.start()
     elif args.ipa:
         logger.logtext("Dynamic analysis for IPA is not yet supported. Please provide an IPA.")
     else:

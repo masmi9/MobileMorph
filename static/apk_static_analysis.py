@@ -9,6 +9,7 @@ import static.secrets_scanner as secrets
 from cve_scanner.scanner import scan_gradle_file_for_cves
 from dashboard.progress_tracker import update_progress
 from threat_intel.ti_scanner import scan_indicators
+from utils.threat_score_utils import calculate_risk_score
 
 ### This will use apktool, jadx, semgrep, strings, and some regex to hunt for exported components WebView configs, weak crypto, etc.
 
@@ -302,6 +303,30 @@ def scan_decompiled_code_with_findings(java_dir):
                                     "file": relpath,
                                     "line": line_number
                                 })
+                            # SSH client library usage (e.g., JSch)
+                            if re.search(r'\bJSch\b|\bSession\b|setPortForwardingL|setPassword', line):
+                                findings.append({
+                                    "type": "ssh_config",
+                                    "message": "Possible SSH client/tunneling configuration (e.g., JSch)",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # SSH commands in exec (e.g., Runtime.getRuntime().exec("ssh ..."))
+                            if "ssh" in line and re.search(r'Runtime\.getRuntime\(\)\.exec\s*\(', combined_line):
+                                findings.append({
+                                    "type": "ssh_command_exec",
+                                    "message": "Hardcoded SSH command found in Runtime.exec()",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
+                            # Embedded SSH key indicators
+                            if re.search(r'BEGIN (RSA|DSA|EC) PRIVATE KEY|\.pem', line):
+                                findings.append({
+                                    "type": "embedded_ssh_key",
+                                    "message": "Possible embedded SSH private key or PEM file",
+                                    "file": relpath,
+                                    "line": line_number
+                                })
                             # WebView.loadURL
                             if re.search(r'\.loadUrls\s*\(', combined_line):
                                 findings.append({
@@ -528,6 +553,16 @@ def run_static_analysis(apk_path, file_id=None):
         detect_obfuscation(smali_dir)
         advanced_data_flow(smali_dir)
         detect_hardcoded_keys(smali_dir)
+        # Check for embedded SSH private keys in strings
+        ssh_key_indicators = []
+        try:
+            with open(strings_file, 'r', encoding='utf-8', errors='ignore') as f:
+                for i, line in enumerate(f):
+                    if "BEGIN RSA PRIVATE KEY" in line or ".pem" in line:
+                        ssh_key_indicators.append(f"Possible embedded SSH key in line {i + 1}: {line.strip()}")
+        except Exception as e:
+            logger.warning(f"Error checking for SSH keys: {e}")
+        results["ssh_keys"] = ssh_key_indicators
         results["webview_config"] = scan_webview_usage(smali_dir)
         scan_code_complexity(smali_dir)
     elif os.path.exists(java_dir):
@@ -561,6 +596,7 @@ def run_static_analysis(apk_path, file_id=None):
     update_progress(file_id, 95)
     results["ioc_candidates"] = list(set(ioc_candidates))
 
+    results = calculate_risk_score(results)
     return base_name, results
 
 if __name__ == "__main__":

@@ -12,6 +12,23 @@
   Download Full Findings (JSON)
 </a>
 
+<!-- Risk Score -->
+{% if parsed.get("risk_level") %}
+  <p>
+    <strong>Risk Score:</strong>
+    <span class="badge bg-danger">{{ parsed["risk_score"] }}</span>
+    &nbsp;
+    <strong>Level:</strong>
+    <span class="badge 
+      {% if parsed['risk_level'] == 'High' %}bg-danger
+      {% elif parsed['risk_level'] == 'Medium' %}bg-warning text-dark
+      {% elif parsed['risk_level'] == 'Low' %}bg-info text-dark
+      {% else %}bg-secondary
+      {% endif %}
+    ">{{ parsed["risk_level"] }}</span>
+  </p>
+{% endif %}
+
 <hr>
 
 <!-- Tabs -->
@@ -19,6 +36,7 @@
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#secrets">Secrets</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#components">Exported Components</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#permissions">Permissions</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ssh">SSH Config</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#webview">WebView Config</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#root">Root Detection</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cve">CVE Scan</button></li>
@@ -90,6 +108,35 @@
       </ul>
     {% else %}
       <p class="text-muted">No permissions extracted.</p>
+    {% endif %}
+  </div>
+
+  <!-- SSH -->
+  <div class="tab-pane fade" id="ssh">
+    {% if parsed.get("ssh_keys") or parsed.get("static_findings") %}
+      <ul class="list-group">
+        {% for finding in parsed["static_findings"] if finding.type.startswith('ssh') or finding.type == "embedded_ssh_key" %}
+          {% set score_tag = "bg-secondary" %}
+          {% if finding.type == "embedded_ssh_key" %}
+            {% set score_tag = "bg-danger" %}
+          {% elif finding.type == "ssh_command_exec" %}
+            {% set score_tag = "bg-warning text-dark" %}
+          {% endif %}
+          <li class="list-group-item">
+            <span class="badge {{ score_tag }}">{{ finding.type.replace('_', ' ').title() }}</span><br>
+            {{ finding.message }}<br>
+            <small>{{ finding.file }} (line {{ finding.line }})</small><br>
+            <a href="{{ url_for('main.view_source_page', apk_name=base_name) }}?file={{ finding.file }}&line={{ finding.line }}">
+              📄 View in Source
+            </a>
+          </li>
+        {% endfor %}
+        {% for key_alert in parsed.get("ssh_keys", []) %}
+          <li class="list-group-item text-danger">{{ key_alert }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">No SSH configurations or keys detected.</p>
     {% endif %}
   </div>
 

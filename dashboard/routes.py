@@ -7,12 +7,14 @@ from dashboard.extensions import db
 from dashboard.models import ScanResult, IOCEntry
 from dashboard.progress_tracker import get_progress, update_progress
 from static import apk_static_analysis as apk
-from dynamic import dynamic_runner as dyna
+from dyna import OWASPTestSuiteDrozer, ensure_drozer_agent_ready
 from static import ipa_static_analysis as ipa
 from static import secrets_scanner as secrets
 from utils.paths import get_output_folder
 from report.report_generator import ReportGenerator
 from utils import logger
+import markdown
+from datetime import datetime
 
 main = Blueprint("main", __name__)
 
@@ -79,7 +81,15 @@ def show_results(scan_id):
         parsed = result.findings
     # Extracted base_name by stripping file extension
     base_name = result.filename.replace('.apk', '').replace('.ipa', '')
-    return render_template('results.html', result=result, parsed=parsed, base_name=base_name)
+    # Optionally include the rendered Markdown
+    dynamic_html = None
+    report_path = "report.md"
+    if os.path.exists(report_path):
+        with open(report_path, "r", encoding="utf-8") as f:
+            md_content = f.read()
+            dynamic_html = markdown.markdown(md_content, extensions=["fenced_code", "tables"])
+
+    return render_template('results.html', result=result, parsed=parsed, base_name=base_name, dynamic_html=dynamic_html)
 
 @main.route('/iocs')
 def show_iocs():
@@ -109,7 +119,6 @@ def delete_scan(scan_id):
 
 @main.route('/dynamic/latest')
 def run_dynamic_on_latest():
-    # Get latest uploaded scan from DB
     latest_scan = ScanResult.query.order_by(ScanResult.created_at.desc()).first()
     if not latest_scan:
         flash("No uploaded file found for dynamic analysis.", "warning")
@@ -123,10 +132,35 @@ def run_dynamic_on_latest():
     try:
         if latest_scan.filename.endswith(".apk"):
             logger.info(f"Running dynamic analysis for APK: {latest_scan.filename}")
-            dynamic_results = dyna.start_dynamic_analysis(file_path)
-        elif latest_scan.filename.endswith(".ipa"):
-            logger.info(f"Running dynamic analysis for IPA: {latest_scan.filename}")
-            dynamic_results = start_dynamic_analysis(file_path)
+            ensure_drozer_agent_ready()
+            # Pull package name from static scan JSON (if exists)
+            try:
+                findings_dict = json.loads(latest_scan.findings)
+                pkg_name = findings_dict.get("package_name", "")
+            except Exception:
+                findings_dict = {}
+                pkg_name = ""
+            # Run Dynamic Analysis
+            suite = OWASPTestSuiteDrozer(file_path, pkg_name)
+            suite.full_test_suite()
+            # Read the raw markdown report
+            with open("report.md", "r", encoding="utf-8") as f:
+                md_content = f.read()
+            # Convert Markdown -> HTML
+            dynamic_results = markdown.markdown(md_content, extensions=["fenced_code", "tables"])
+            # Save as dynamic scan in DB
+            dynamic_scan = ScanResult(
+                filename = latest_scan.filename,
+                platform = latest_scan.platform,
+                scan_type = "dynamic",
+                findings = json.dumps({"report_markdown": md_content}),
+                created_at = datetime.utcnow()
+            )
+            db.session.add(dynamic_scan)
+            db.session.commit()
+
+            flash(f"Dynamic analysis completed for {latest_scan.filename}.", "success")
+            return render_template("dynamic_results.html", results=dynamic_results, filename=latest_scan.filename)
         else:
             flash("Unsupported file type for dynamic analysis.", "danger")
             return redirect(url_for("main.index"))
@@ -134,9 +168,6 @@ def run_dynamic_on_latest():
         logger.warning(f"Dynamic analysis failed: {e}")
         flash(f"Error during dynamic analysis: {e}", "danger")
         return redirect(url_for("main.index"))
-
-    flash(f"Dynamic analysis completed for {latest_scan.filename}.", "success")
-    return render_template("dynamic_results.html", results=dynamic_results, filename=latest_scan.filename)
 
 @main.route('/view-source/')
 def view_source_missing():
