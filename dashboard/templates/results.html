@@ -60,7 +60,14 @@
     {% if parsed["secrets"] %}
       <ul class="list-group">
         {% for name, match in parsed["secrets"] %}
-          <li class="list-group-item"><strong>{{ name }}</strong>: <code>{{ match }}</code></li>
+          <li class="list-group-item">
+            <strong>{{ name }}</strong>: <code>{{ match }}</code>
+            {% if match is mapping and match.file and match.line %}
+              <br><a href="{{ url_for('main.view_source_page', apk_name=base_name) }}?file={{ match.file }}&line={{ match.line }}">
+                📄 View in Source
+              </a>
+            {% endif %}
+          </li>
         {% endfor %}
       </ul>
     {% else %}
@@ -145,7 +152,14 @@
     {% if parsed["webview_config"] %}
       <ul class="list-group">
         {% for config in parsed["webview_config"] %}
-          <li class="list-group-item"><code>{{ config }}</code></li>
+          <li class="list-group-item">
+            <code>{{ config }}</code>
+            {% if config is mapping and config.file and config.line %}
+              <br><a href="{{ url_for('main.view_source_page', apk_name=base_name) }}?file={{ config.file }}&line={{ config.line }}">
+                📄 View in Source
+              </a>
+            {% endif %}
+          </li>
         {% endfor %}
       </ul>
     {% else %}
@@ -253,6 +267,12 @@
     {% endif %}
   </div>
 
+  <!-- RAW JSON Dump -->
+  <div class="tab-pane fade" id="all">
+    <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
+      {{ parsed | tojson(indent=2) if parsed is mapping else parsed }}
+    </pre>
+  </div>
 
   <!-- iOS Tabs -->
   <div class="tab-pane fade" id="ats">

@@ -114,8 +114,13 @@ def run_dynamic_analysis(args, selected_profile="minimal"):
     
     if args.apk:
         logger.info("Launching dyna.py for dynamic analysis...")
+        # Dynamically extract the package name from APK
+        package_name = get_package_name_from_apk(args.apk)
+        if not package_name:
+            logger.error("Could not extract package name from APK Aborting dynamic analysis.")
+            return
         try:
-            subprocess.run(["python", "dyna.py" , "--apk", args.apk], check=True)
+            subprocess.run(["python", "dyna.py" , "--apk", args.apk, "--package", package_name], check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Dynamic analysis failed: {e}")
         # Inject specific Frida script if --frida-script is provided
@@ -230,6 +235,7 @@ def main():
     parser.add_argument('--report', action='store_true', help='Generate a professional report')
     parser.add_argument('--apk', type=str, help='Path to APK file')
     parser.add_argument('--ipa', type=str, help='Path to IPA file')
+    parser.add_argument("--package", type=str, help="Package name")
     parser.add_argument('--profile', type=str, default='minimal', help='Frida hook profile for dynamic analysis (default: minimal, full, ssl_only, crypto_focus, stealth)')
     parser.add_argument('--frida-script', type=str, help="Optional: custom Frida script to inject from dynamic frida hooks")
     parser.add_argument('--proxy', action='store_true', help='Force app traffic through proxy via Frida hooks')

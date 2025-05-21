@@ -15,6 +15,7 @@ from report.report_generator import ReportGenerator
 from utils import logger
 import markdown
 from datetime import datetime
+from main import get_package_name_from_apk
 
 main = Blueprint("main", __name__)
 
@@ -136,7 +137,10 @@ def run_dynamic_on_latest():
             # Pull package name from static scan JSON (if exists)
             try:
                 findings_dict = json.loads(latest_scan.findings)
-                pkg_name = findings_dict.get("package_name", "")
+                pkg_name = get_package_name_from_apk(file_path)
+                if not pkg_name:
+                    flash("Could not extract package name from APK. Aborting.", "danger")
+                    return redirect(url_for("main.index"))
             except Exception:
                 findings_dict = {}
                 pkg_name = ""
