@@ -29,6 +29,10 @@ def colorize_text(text, color):
 
     return f"{color}{text}{COLOR_RESET}"
 
+def strip_ansi_codes(text):
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', text)
+
 def colorize_section_titles(output):
 
     section_patterns = [
@@ -521,8 +525,9 @@ class OWASPTestSuiteDrozer:
             report.write("This report contains the findings from the automated OWASP Mobile Top 10 security tests.\n\n")
 
             for section_title, section_data in self.report_data:
+                clean_section = strip_ansi_codes(section_data)
                 report.write(f"## {section_title}\n")
-                report.write(section_data + "\n\n")
+                report.write(clean_section + "\n\n")
 
         logging.info(colorize_text("Report generated at 'report.md'.", COLOR_CYAN))
 
