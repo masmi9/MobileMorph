@@ -51,19 +51,13 @@ class ReportGenerator:
             else:
                 report.write("- No agent C2 logs found.\n\n")
 
-    def generate_dynamic_report(self):
-        logger.info("Generating dynamic analysis report...")
-        traffic_log = os.path.join(self.output_dir, f"{self.app_name}_traffic_log.txt")
-
-        with open(self.report_file, "w") as report:
-            report.write(f"# Dynamic Analysis Report for {self.app_name}\n\n")
-
-            if os.path.exists(traffic_log):
-                report.write("## Intercepted HTTP/S Traffic\n\n")
-                with open(traffic_log, "r") as f:
-                    report.write(f.read())
-            else:
-                report.write("- No traffic logs captured.\n\n")
+    def generate_report(self):
+        with open("report.md", "w", encoding="utf-8") as report:
+            report.write("# OWASP Mobile Top 10 Security Report\n\n")
+            report.write("This report contains the findings from the automated OWASP Mobile Top 10 security tests.\n\n")
+            for section_title, section_data in self.report_data:
+                report.write(f"## {section_title}\n")
+                report.write(section_data + "\n\n")
 
     def generate_exploit_report(self):
         logger.info("Generating exploit findings report...")

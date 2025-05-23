@@ -1,55 +1,73 @@
 [
   {
-    "indicator": "https://lemon8-app.com",
-    "source": "uploads\\lemon8.apk",
+    "indicator": "https://lemon8-sg.tiktok-row.net",
+    "source": "uploads/lemon8_52025.apk",
     "virustotal": null,
     "threat_score": 0
   },
   {
-    "indicator": "2.2.0.1",
-    "source": "uploads\\lemon8.apk",
+    "indicator": "http://www.videolan.org/x264.html",
+    "source": "uploads/lemon8_52025.apk",
     "virustotal": null,
     "threat_score": 0
   },
   {
-    "indicator": "https://nproject-2657.firebaseio.com",
-    "source": "uploads\\lemon8.apk",
-    "virustotal": null,
-    "threat_score": 0
-  },
-  {
-    "indicator": "https://lemon8-app.com",
-    "source": "uploads\\lemon8.apk",
-    "virustotal": null,
-    "threat_score": 0
-  },
-  {
-    "indicator": "https://nproject-2657.firebaseio.com",
-    "source": "uploads\\lemon8.apk",
-    "virustotal": null,
-    "threat_score": 0
-  },
-  {
-    "indicator": "2.2.0.1",
-    "source": "uploads\\lemon8.apk",
-    "virustotal": null,
-    "threat_score": 0
-  },
-  {
-    "indicator": "2.2.0.1",
-    "source": "uploads\\lemon8.apk",
-    "virustotal": null,
-    "threat_score": 0
-  },
-  {
-    "indicator": "https://nproject-2657.firebaseio.com",
-    "source": "uploads\\lemon8.apk",
+    "indicator": "https://lemon8-va.tiktok-row.net",
+    "source": "uploads/lemon8_52025.apk",
     "virustotal": null,
     "threat_score": 0
   },
   {
     "indicator": "https://lemon8-app.com",
-    "source": "uploads\\lemon8.apk",
+    "source": "uploads/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://nproject-2657.firebaseio.com",
+    "source": "uploads/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://www.lemon8-app.com",
+    "source": "uploads/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://lemon8-sg.tiktok-row.net",
+    "source": "/mnt/c/Users/MalikSmith/Documents/kali-connect/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://lemon8-app.com",
+    "source": "/mnt/c/Users/MalikSmith/Documents/kali-connect/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://www.lemon8-app.com",
+    "source": "/mnt/c/Users/MalikSmith/Documents/kali-connect/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "http://www.videolan.org/x264.html",
+    "source": "/mnt/c/Users/MalikSmith/Documents/kali-connect/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://lemon8-va.tiktok-row.net",
+    "source": "/mnt/c/Users/MalikSmith/Documents/kali-connect/lemon8_52025.apk",
+    "virustotal": null,
+    "threat_score": 0
+  },
+  {
+    "indicator": "https://nproject-2657.firebaseio.com",
+    "source": "/mnt/c/Users/MalikSmith/Documents/kali-connect/lemon8_52025.apk",
     "virustotal": null,
     "threat_score": 0
   }

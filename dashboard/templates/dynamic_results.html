@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Dynamic Analysis Results for {{ filename }}</h2>
+
+<div class="card mt-4">
+  <div class="card-body">
+    {% if results %}
+      <div class="markdown-body">
+        {{ results|safe }}
+      </div>
+    {% else %}
+      <p class="text-muted">No dynamic results available.</p>
+    {% endif %}
+  </div>
+</div>
+
+<a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
+{% endblock %}

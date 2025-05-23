@@ -7,12 +7,19 @@ document.addEventListener("DOMContentLoaded", function () {
   const sourceCode = document.getElementById("source-code");
   let selectedLines = new Set();
 
+  function clearHighlights() {
+    document.querySelectorAll(".code-line").forEach(div => {
+      div.classList.remove("highlight");
+      div.style.backgroundColor = "";
+    });
+  }
+
   function highlightLineDiv(lineDiv, lineNumber) {
     if (selectedLines.has(lineNumber)) {
-      lineDiv.style.backgroundColor = "#1e1e1e";
+      lineDiv.classList.remove("highlight");
       selectedLines.delete(lineNumber);
     } else {
-      lineDiv.style.backgroundColor = "#333355";
+      lineDiv.classList.add("highlight");
       selectedLines.add(lineNumber);
     }
   }
@@ -55,15 +62,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
         sourceCode.innerHTML = html;
 
-        document.querySelectorAll(".code-line").forEach(div => {
-          const lineNum = parseInt(div.dataset.line);
-          if (highlightLine && lineNum === highlightLine) {
-            div.style.backgroundColor = "#fff59d";
-            div.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
+        setTimeout(() => {
+          document.querySelectorAll(".code-line").forEach(div => {
+            const lineNum = parseInt(div.dataset.line);
+            if (highlightLine && lineNum === highlightLine) {
+              div.classList.add("highlight");
+              div.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
 
-          div.addEventListener("click", () => highlightLineDiv(div, lineNum));
-        });
+            div.addEventListener("click", () => highlightLineDiv(div, lineNum));
+          });
+        }, 50);
       });
   }
 

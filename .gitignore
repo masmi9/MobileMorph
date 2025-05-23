@@ -1,5 +1,6 @@
 # Ignore output directories
 output/
+__pycache__/
 static/__pycache__
 utils/__pycache__
 report/__pycache__
@@ -15,4 +16,6 @@ actions-runner/
 .venv/
 PMPA/
 tools/frida-server
+tools/drozer-agent.apk
 uploads/
+decompiled_app/

@@ -27,3 +27,9 @@
   white-space: pre;
   line-height: 1.5;
 }
+
+.highlight {
+  background-color: #fff59d !important;
+  color: black;
+  font-weight: bold;
+}
