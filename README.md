@@ -70,14 +70,16 @@ MobileMorph/
 ├── dynamic/
 │   ├── dynamic_runner.py
 │   ├── frida_hooks/
-│   │   ├── auth_bypass.js
-│   │   ├── bypass_ssl.js
-│   │   ├── hook_crypto.js
+│   │   ├── bypass_jailbreak.js                 # (1) iOS Hook
+│   │   ├── get-security-provider.js
+│   │   ├── hook_keychain.js                    # (1) iOS Hook
+│   │   ├── hook_allmethods.js
+│   │   ├── hook_targetmethods.js
+│   │   ├── intent_hook.js
 │   │   ├── network_logger.js
 │   │   ├── proxy_force.js
-│   │   ├── root_bypass.js
-│   │   ├── hook_keychain.js                    # (1) iOS Hook
-│   │   └── bypass_jailbreak.js                 # (1) iOS Hook
+│   │   ├── webview-allmethods.js
+│   │   └── webview-targetmethods.js                 
 │   ├── traffic_interceptor.py
 │   ├── traffic_interceptor_ios.py              # (1) iOS Dynamic Support
 │   ├── hook_loader.py

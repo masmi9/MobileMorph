@@ -2,28 +2,28 @@ import os
 
 # Map hook identifiers to script file paths (relative to project root)
 HOOKS = {
-    "network_logger": "dynamic/frida_hooks/network_logger.js",
-    "hook_crypto": "dynamic/frida_hooks/hook_crypto.js",
-    "bypass_ssl": "dynamic/frida_hooks/bypass_ssl.js",
-    "auth_bypass": "dynamic/frida_hooks/auth_bypass.js",
-    "root_bypass": "dynamic/frida_hooks/root_bypass.js",
-    "proxy": "dynamic/frida_hooks/proxy_force.js",
     "bypass_jailbreak": "dynamic/frida_hooks/bypass_jailbreak.js",
+    "hook_allmethods": "dynamic/frida_hooks/hook-allmethods.js",
     "hook_keychain": "dynamic/frida_hooks/hook_keychain.js",
-    "webview": "dynamic/frida_hooks/webview_full_monitor.js"
+    "hook_targetmethods": "dynamic/frida_hooks/hook-targetmethods.js",
+    "intent_hook": "dynamic/frida_hooks/intent_hook.js",
+    "network_logger": "dynamic/frida_hooks/network_logger.js",
+    "proxy": "dynamic/frida_hooks/proxy_force.js",
+    "security_providers": "dynamic/frida_hooks/get-security-providers.js",
+    "webview_all": "dynamic/frida_hooks/webview-allmethods.js",
+    "webview_target": "dynamic/frida_hooks/webview-targetmethods.js"
 }
 
 # Define reusable hook profiles
 PROFILES = {
-    "full": ["proxy", "network_logger", "hook_crypto", "bypass_ssl", "auth_bypass", "root_bypass", "webview"],
+    "full": ["proxy", "network_logger", "hook_allmethods", "webview_all"],
     "minimal": ["network_logger"],
-    "ssl_only": ["bypass_ssl"],
-    "crypto_focus": ["hook_crypto"],
-    "stealth": ["root_bypass", "bypass_ssl"],
-    "proxy": ["proxy", "network_logger"],
+    "intent_monitor": ["intent_hook"],
     "ios_full": ["network_logger", "bypass_jailbreak", "hook_keychain"],
     "ios_minimal": ["bypass_jailbreak"],
-    "webview": ["webview"]
+    "method_hooking": ["hook_allmethods", "hook_targetmethods"],
+    "security_check": ["security_providers", "root_bypass"],
+    "webview_expanded": ["webview_all", "webview_target"]    
 }
 
 def load_hooks(profile_name):
