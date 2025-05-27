@@ -1,3 +1,4 @@
+![MobileMorph png](https://github.com/user-attachments/assets/52233bb6-c5c1-48d8-b633-baa118f651a9)
 # MobileMorph - Automated Mobile App Pentesting Framework
 
 **MobileMorph** is a modular and extensible mobile application security testing framework designed to automate **static**, **dynamic**, and **exploit-based** analysis for Android and iOS applications. It integrates advanced features such as Frida-based instrumentation, emulator automation, BurpSuite integration, runtime file/traffic inspection, and C2 agent deployment to empower offensive security engineers and mobile red teamers.
