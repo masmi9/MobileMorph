@@ -19,3 +19,4 @@ tools/frida-server
 tools/drozer-agent.apk
 uploads/
 decompiled_app/
+actions-runner/
