@@ -11,6 +11,7 @@ from cve_scanner.scanner import scan_gradle_file_for_cves
 from dashboard.progress_tracker import update_progress
 from threat_intel.ti_scanner import scan_indicators
 from utils.threat_score_utils import calculate_risk_score
+from static.manifest_inspector import APKAnalyzer
 
 ### This will use apktool, jadx, semgrep, strings, and some regex to hunt for exported components WebView configs, weak crypto, etc.
 
@@ -197,30 +198,49 @@ def extract_permissions(manifest_path):
 
 def scan_manifest(manifest_path):
     logger.info(f"Scanning AndroidManifest.xml for exported components...")
+    
+    # Run manifest and component analysis
+    analyzer = APKAnalyzer(manifest_path, verbose=False, quiet=True, cleanup=True)
+    results = analyzer.analyze()
+
+    if 'error' in results:
+        logger.error(f"Manifest scan failed: {results['error']}")
+        return {
+            "exported_components": [],
+            "icc_risks": [],
+            "raw_results": {}
+        }
+
     exported_components = []
-    with open(manifest_path, "r") as manifest:
-        content = manifest.read()
-        #Step 1: Regex to capture all components with android:exported="true"
-        exported = re.findall(r'<(activity|service|receiver)[^>]*android:exported="true"[^>]*android:name="([^"]+)"', content)
-        # Print the number of exported components found
-        for comp_type, comp_name in exported:
-            logger.logtext(f"Exported {comp_type}: {comp_name}")
-        extract_permissions(manifest_path)
-        # ICC Attack Surface Analysis
-        logger.info("Checking for ICC attack surface risks...")
-        icc_risks = []
-        exported_components = re.findall(r'<(activity|service|receiver)[^>]*android:exported="true"[^>]*android:name="([^"]+)"', content)
-        for comp_type, comp_name in exported_components:
-            # Look for missing android:permission attributes
-            if not re.search(fr'<{comp_type}[^>]*android:name="{re.escape(comp_name)}"[^>]*android:permission=', content):
-                icc_risks.append((comp_type, comp_name))
-        if icc_risks:
-            logger.warning("Exported components missing protection (no android:permission):")
-            for comp_type, comp_name in icc_risks:
-                logger.logtext(f" - {comp_type}: {comp_name}")
-        else:
-            logger.info("No obvious ICC permission risks found.")
-    return exported_components
+    icc_risks = []
+
+    components = results.get('components', {})
+    for comp_type, comp_list in components.items():
+        for comp in comp_list:
+            name = comp.get("name")
+            permission = comp.get("permission")
+            exported_components.append((comp_type, name))
+
+            if permission is None and comp_type in ['activity', 'service', 'receiver']:
+                icc_risks.append((comp_type, name))
+
+    # Log the findings
+    for comp_type, comp_name in exported_components:
+        logger.logtext(f"Exported {comp_type}: {comp_name}")
+
+    if icc_risks:
+        logger.warning("Exported components missing protection (no android:permission):")
+        for comp_type, comp_name in icc_risks:
+            logger.logtext(f" - {comp_type}: {comp_name}")
+    else:
+        logger.info("No obvious ICC permission risks found.")
+
+    # Return full results for reporting
+    return {
+        "exported_components": exported_components,
+        "icc_risks": icc_risks,
+        "raw_results": results
+    }
 
 def scan_network_security_config(output_dir):
     """Looks for res/xml/network_security_config.xml or manifest flags."""
@@ -539,7 +559,11 @@ def run_static_analysis(apk_path, file_id=None):
     update_progress(file_id, 40)
     if os.path.exists(manifest_path):
         results["permissions"] = extract_permissions(manifest_path)
-        scan_manifest(manifest_path)
+        # Perform component analysis
+        manifest_scan = scan_manifest(apk_path)
+        results["exported_components"] = manifest_scan["exported_components"]
+        results["icc_risks"] = manifest_scan["icc_risks"]
+        results["adb_exploits"] = manifest_scan["raw_results"].get("exploits", [])
         scan_network_security_config(output_dir)
     else:
         logger.warning("AndroidManifest.xml not found after decompilation.")

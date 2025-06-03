@@ -77,14 +77,39 @@
 
   <!-- Exported Components -->
   <div class="tab-pane fade" id="components">
-    {% if parsed["exported_components"] %}
-      <ul class="list-group">
-        {% for comp in parsed["exported_components"] %}
-          <li class="list-group-item"><code>{{ comp }}</code></li>
+    {% if parsed.exported_components %}
+      <h5>Exported Components</h5>
+      <ul class="list-group mb-3">
+        {% for comp_type, comp_name in parsed.exported_components %}
+          <li class="list-group-item">
+            <strong>{{ comp_type|capitalize }}:</strong> {{ comp_name }}
+          </li>
         {% endfor %}
       </ul>
     {% else %}
       <p class="text-muted">No exported components found.</p>
+    {% endif %}
+    {% if parsed.icc_risks %}
+      <h5 class="mt-4 text-danger">ICC Risks (Missing Permissions)</h5>
+      <ul class="list-group mb-3">
+        {% for comp_type, comp_name in parsed.icc_risks %}
+          <li class="list-group-item">
+            <strong>{{ comp_type|capitalize }}:</strong> {{ comp_name }}
+            <span class="badge bg-danger ms-2">No android:permission</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if parsed.adb_exploits %}
+      <h5 class="mt-4">Generated ADB Exploits</h5>
+      <div class="card p-3 bg-light border">
+        <pre class="mb-0">
+  {% for exploit in parsed.adb_exploits %}
+  # {{ exploit.description }}
+  {{ exploit.command }}
+  {% endfor %}
+        </pre>
+      </div>
     {% endif %}
   </div>
 

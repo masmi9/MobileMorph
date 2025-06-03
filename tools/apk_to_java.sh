@@ -22,9 +22,13 @@ JAVA_DIR="${OUT_DIR}/java"
 
 # === TOOLS SETUP ===
 
-# apktool
-command -v apktool >/dev/null 2>&1 || { echo >&2 "❌ apktool not installed. Install w>
-# dex2jar (support both d2j-dex2jar and d2j-dex2jar.sh)
+# apktool check
+if ! command -v apktool >/dev/null 2>&1; then
+    echo "❌ apktool not installed. Install it and make sure it's in your PATH."
+    exit 1
+fi
+
+# dex2jar
 if command -v d2j-dex2jar.sh >/dev/null 2>&1; then
     DEX2JAR=$(command -v d2j-dex2jar.sh)
 elif command -v d2j-dex2jar >/dev/null 2>&1; then
@@ -34,29 +38,33 @@ elif [ -f "/usr/share/dex2jar/d2j-dex2jar.sh" ]; then
 elif [ -x "./dex-tools-2.1/d2j-dex2jar.sh" ]; then
     DEX2JAR="./dex-tools-2.1/d2j-dex2jar.sh"
 else
-    echo "❌ dex2jar not found. Try: sudo apt install dex2jar OR download it manually>    exit 1
+    echo "❌ dex2jar not found. Try: sudo apt install dex2jar OR download it manually."
+    exit 1
 fi
 
-
-# smali
+# smali check
 if command -v smali >/dev/null 2>&1; then
     SMALI_CMD="smali assemble"
 elif [ -f "./smali.jar" ]; then
     SMALI_CMD="java -jar smali.jar assemble"
 else
-    echo "❌ smali not found. Install via pip or download from https://bitbucket.org/>    exit 1
+    echo "❌ smali not found. Install via pip or download from https://bitbucket.org/JesusFreke/smali/"
+    exit 1
 fi
 
-# cfr.jar
-CFR_JAR="./cfr.jar"
+# === CFR Decompiler Check ===
+CFR_JAR="tools/cfr.jar"
 if [ ! -f "$CFR_JAR" ]; then
-    echo "❌ cfr.jar not found. Download from https://www.benf.org/other/cfr/ and pla>    exit 1
+    echo "❌ [ERROR] cfr.jar not found."
+    echo "Download from: https://www.benf.org/other/cfr/"
+    echo "Then place it in: $PWD as ./cfr.jar"
+    exit 1
 fi
 
 # === START PROCESS ===
 
 echo "🔧 Step 1: Decompiling APK with apktool..."
-apktool d "$APK_FILE" -o "$OUT_DIR" || exit 1
+apktool d "$APK_FILE" -o "$OUT_DIR" -f || exit 1
 
 echo "⚙️ Step 2: Reassembling smali to DEX..."
 $SMALI_CMD -o "$DEX_FILE" "$SMALI_DIR" || exit 1
