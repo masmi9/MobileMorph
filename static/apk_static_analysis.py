@@ -3,6 +3,7 @@ import sys
 import subprocess
 import re
 import requests
+import logging
 from utils import paths, logger
 import xml.etree.ElementTree as ET
 import static.secrets_scanner as secrets
@@ -46,8 +47,28 @@ def get_apktool_cmd():
     return apktool_path
 
 def decompile_apk(apk_path, output_dir):
-    logger.info(f"Decompiling {apk_path} with apktool...")
-    subprocess.run([get_apktool_cmd(), "d", "-f", apk_path, "-o", output_dir])
+    apk_name = os.path.basename(apk_path).replace(".apk", "")
+    script_path = os.path.join(os.getcwd(), "tools", "apk_to_java.sh")
+
+    # Use default output dir based on APK name if not provided
+    if output_dir is None:
+        output_dir = os.path.join(os.getcwd(), f"{apk_name}_output")
+
+    logger.info(f"Running apk_to_java.sh on {apk_path}...")
+
+    try:
+        subprocess.run([script_path, apk_path], check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to decompile APK: {e}")
+        return None
+
+    java_dir = os.path.join(output_dir, "java")
+    if not os.path.isdir(java_dir):
+        logger.warning(f"Decompiled Java directory not found at: {java_dir}")
+        return None
+
+    logger.info(f"Java source extracted to: {java_dir}")
+    return java_dir
 
 def advanced_data_flow(smali_dir):
     logger.info("Performing data flow analysis...")
@@ -272,10 +293,16 @@ def scan_for_root_detection(smali_dir):
 
 def scan_decompiled_code(java_dir):
     logger.info("Scanning Java files for potentially dangerous code...")
+    # Get absolute path to ensure Docker volume mount works
+    abs_path = os.path.abspath(java_dir)
+    if not os.path.isdir(abs_path):
+        logger.warning(f"Invalid Java directory for Semgrep: {abs_path}")
+        return
     # Define the semgrep command with the pattern to scan for risky code (like risky function calls, hardcoded credentials)
-    semgrep_cmd = ["docker", "run", "--rm", "-v", f"{os.getcwd()}:/mnt", "returntocorp/semgrep", "semgrep", "--config", "p/owasp-mobile", "/mnt"]
+    semgrep_cmd = ["docker", "run", "--rm", "-v", f"{abs_path}:/mnt", "returntocorp/semgrep", "semgrep", "--config", "p/owasp-mobile", "/mnt"]
     try:
         subprocess.run(semgrep_cmd, check=True)
+        logger.info("Semgrep scan completed.")
     except subprocess.CalledProcessError as e:
         logger.warning(f"Error running Semgrep: {e}")
 
