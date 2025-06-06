@@ -20,3 +20,4 @@ tools/drozer-agent.apk
 uploads/
 decompiled_app/
 actions-runner/
+*_output/
